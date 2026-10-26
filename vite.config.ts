@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      "@workspace/gdna-ds": path.resolve(__dirname, "src/lib/gdna-ds"),
       "@": path.resolve(__dirname, "./src"),
     },
   },

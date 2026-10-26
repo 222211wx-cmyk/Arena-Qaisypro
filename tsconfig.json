@@ -16,7 +16,9 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@workspace/gdna-ds": ["./src/lib/gdna-ds/index.ts"],
+      "@workspace/gdna-ds/*": ["./src/lib/gdna-ds/*"]
     }
   },
   "include": ["src"]
