@@ -16,7 +16,10 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@workspace/api-client-react": ["./src/lib/workspace/api-client-react.ts"],
+      "@workspace/gdna-ds": ["./src/lib/gdna-ds/index.ts"],
+      "@workspace/gdna-ds/*": ["./src/lib/gdna-ds/*"]
     }
   },
   "include": ["src"]
