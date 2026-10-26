@@ -1,0 +1,8 @@
+@import "@workspace/gdna-ds/styles.css";
+
+/* The existing auth provider verifies the cookie again before opening calls.
+   Its loading/error UI is supplementary here, never a full-height page gate. */
+.global-call-session > [role="status"] {
+  min-height: 0;
+  position: static;
+}

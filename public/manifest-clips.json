@@ -1,0 +1,15 @@
+{
+  "id": "./clips",
+  "name": "ARENA Clips",
+  "short_name": "Hc Clips",
+  "description": "ARENA Clips",
+  "start_url": "./clips",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#d4af37",
+  "icons": [
+    { "src": "./clips-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./clips-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

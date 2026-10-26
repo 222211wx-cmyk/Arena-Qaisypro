@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5, interactive-widget=resizes-content" />
+
+    <!-- Primary Meta -->
+    <title>ARENA — Play. Compete. Rise.</title>
+    <meta name="description" content="ARENA — the sovereign play-to-earn gaming and voting platform. Compete in 3 arenas, earn virtual coins, and climb the leaderboard. Powered by GDN-AI." />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#C9A84C" />
+    <meta name="application-name" content="ARENA" />
+
+    <!-- PWA -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ARENA" />
+    <script src="%BASE_URL%section-pwa.js"></script>
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ARENA" />
+    <meta property="og:url" content="/" />
+    <meta property="og:title" content="ARENA — Play. Compete. Rise." />
+    <meta property="og:description" content="The sovereign play-to-earn gaming and voting platform. Compete in 3 arenas, earn virtual coins, and be guided by GDN-AI — the neural intelligence of the arena." />
+    <meta property="og:image" content="%BASE_URL%opengraph.jpg" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ARENA — Play. Compete. Rise." />
+    <meta name="twitter:description" content="The sovereign play-to-earn gaming and voting platform powered by GDN-AI neural intelligence." />
+    <meta name="twitter:image" content="%BASE_URL%opengraph.jpg" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+
+    <!-- Canonical -->
+    <script>
+      const canonical = document.createElement("link");
+      canonical.rel = "canonical";
+      canonical.setAttribute("href", "%BASE_URL%");
+      document.head.appendChild(canonical);
+    </script>
+
+    <!-- Schema.org JSON-LD -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "/#website",
+          "url": "/",
+          "name": "ARENA",
+          "description": "The sovereign play-to-earn gaming and global voting platform powered by GDN-AI",
+          "inLanguage": ["en","ar","fr"],
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "/leaderboard",
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "VideoGame",
+          "@id": "/#game",
+          "name": "ARENA",
+          "description": "Play-to-earn gaming platform: Neon Racer, Crypto Clash, Arena Strike. Earn virtual coins and climb the leaderboard.",
+          "url": "/",
+          "applicationCategory": "Game",
+          "operatingSystem": "Web Browser",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD",
+            "availability": "https://schema.org/InStock"
+          },
+          "genre": ["Play-to-Earn","Strategy","Racing","FPS"],
+          "featureList": ["Real-time leaderboard","Crypto coin rewards","AI moderation","Multi-language support"],
+          "inLanguage": ["en","ar","fr","dz"]
+        },
+        {
+          "@type": "Organization",
+          "@id": "/#org",
+          "name": "ARENA",
+          "url": "/",
+          "logo": "/icon-512.png",
+          "sameAs": []
+        }
+      ]
+    }
+    </script>
+
+    <!-- Fonts: the isolated clip route deliberately avoids this external request. -->
+    <script>
+      {
+        const base = "%BASE_URL%".replace(/\/$/, "");
+        const rawRoute = location.pathname.slice(base.length) || "/";
+        const route = rawRoute.length > 1 ? rawRoute.replace(/\/+$/, "") : rawRoute;
+        const isClipRoute = route === "/clip" || route === "/clips" || /^\/clip\/HELX-\d{6}$/.test(route);
+        const isPartnerLite = route === "/partners/operators" || route === "/partners/dashboard";
+        const isLite = route === "/lite" || route.startsWith("/lite/") || isPartnerLite;
+        const ref = new URLSearchParams(location.search).get("ref");
+        const autoLiteRef = ref !== null &&
+          ["inwi", "orange", "itissalat", "*6", "star6"].includes(ref.trim().toLowerCase());
+        const connection = navigator.connection;
+        let limited = false;
+        try { limited = localStorage.getItem("gdna.limitedData") === "true"; } catch {}
+        limited = limited || !!connection?.saveData || ["2g", "slow-2g"].includes(connection?.effectiveType) ||
+          (typeof connection?.downlink === "number" && connection.downlink < 0.5);
+      if (!isClipRoute && !isLite && !autoLiteRef && !limited) {
+        for (const href of ["https://fonts.googleapis.com", "https://fonts.gstatic.com"]) {
+          const connection = document.createElement("link");
+          connection.rel = "preconnect";
+          connection.href = href;
+          if (href.includes("gstatic")) connection.crossOrigin = "";
+          document.head.appendChild(connection);
+        }
+        const font = document.createElement("link");
+        font.rel = "stylesheet";
+        font.href = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap";
+        document.head.appendChild(font);
+      }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      (() => {
+        const base = "%BASE_URL%".replace(/\/$/, "");
+        const rawRoute = location.pathname.slice(base.length) || "/";
+        const route = rawRoute.length > 1 ? rawRoute.replace(/\/+$/, "") : rawRoute;
+        if (route === "/clip" || route === "/clips") {
+          document.documentElement.lang = "ar";
+          document.documentElement.dir = "rtl";
+          document.documentElement.style.colorScheme = "dark";
+          document.title = "الكليبز — ARENA";
+          document.getElementById("root").innerHTML =
+            '<main data-testid="clip-shell" aria-busy="true"><h1>الكليبز</h1><p>جارٍ تجهيز الرفع…</p></main>';
+        }
+      })();
+    </script>
+    <script type="module" src="%BASE_URL%src/main.tsx"></script>
+  </body>
+</html>

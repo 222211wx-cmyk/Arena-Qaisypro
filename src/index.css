@@ -1,0 +1,248 @@
+@import "@workspace/gdna-ds/styles.css";
+
+/* App-specific CSS below (imperial effects, glows). Theme tokens come from the design system package. */
+
+/* ── Skeleton shimmer — gold on dark ───────────────────────────────────────── */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #1a1400 0%,
+    #2a2000 30%,
+    #3a2e00 50%,
+    #2a2000 70%,
+    #1a1400 100%
+  );
+  background-size: 800px 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+
+/* ── Page fade-in on navigation ─────────────────────────────────────────────── */
+@keyframes page-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.page-transition {
+  animation: page-fade-in 0.25s ease-out both;
+}
+
+/* Horizontal mobile navigation stays swipeable without creating a visible
+   browser scrollbar or making the page feel wider than the viewport. */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Count-up glow pulse ─────────────────────────────────────────────────────── */
+@keyframes count-glow {
+  0%, 100% { text-shadow: 0 0 0 transparent; }
+  50%       { text-shadow: 0 0 12px rgba(201, 168, 76, 0.6); }
+}
+
+.stat-counting {
+  animation: count-glow 0.8s ease-in-out;
+}
+
+/* ── Consistent hover/press states ──────────────────────────────────────────── */
+.empire-btn {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  min-height: 44px;
+  min-width: 44px;
+}
+.empire-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(201, 168, 76, 0.2);
+}
+.empire-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.empire-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Card hover lift ─────────────────────────────────────────────────────────── */
+.empire-card {
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.empire-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(201, 168, 76, 0.1);
+}
+
+/* Mobile tap targets — min 44px */
+@media (max-width: 768px) {
+  a, button { min-height: 44px; display: inline-flex; align-items: center; }
+  nav a { min-height: 44px; }
+}
+/* ── Citizen social layer — scoped Instagram-like LIGHT theme ────────────────
+   The main app runs a dark imperial theme (`.dark` on <html>). Citizen social
+   surfaces opt into a clean white/light look by wrapping in `.citizen-light`.
+   This re-declares the DS light token set locally so DS components (Button,
+   Card, Input, Select…) render light inside this subtree only. Elite/Legends/
+   Home hero are NOT wrapped and keep the imperial dark theme. */
+.citizen-light {
+  --button-outline: rgba(0,0,0,.10);
+  --badge-outline: rgba(0,0,0,.05);
+  --opaque-button-border-intensity: -8;
+  --elevate-1: rgba(0,0,0,.03);
+  --elevate-2: rgba(0,0,0,.08);
+
+  --background: 0 0% 100%;
+  --foreground: 36 27.8% 7.1%;
+  --border: 43 41.2% 83.3%;
+  --card: 0 0% 100%;
+  --card-foreground: 36 27.8% 7.1%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 36 27.8% 7.1%;
+  --primary: 46 64.6% 52.4%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 46 51% 90.4%;
+  --secondary-foreground: 36 27.8% 7.1%;
+  --muted: 46 46.4% 89%;
+  --muted-foreground: 42 20.9% 34.7%;
+  --accent: 192 91.4% 36.5%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72.2% 50.6%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 43 41.2% 83.3%;
+  --ring: 46 64.6% 52.4%;
+
+  --primary-border: hsl(var(--primary));
+  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --secondary-border: hsl(var(--secondary));
+  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --muted-border: hsl(var(--muted));
+  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --accent-border: hsl(var(--accent));
+  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --destructive-border: hsl(var(--destructive));
+  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --card-border: 43 41.2% 83.3%;
+  --popover-border: hsl(var(--popover));
+
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+.citizen-light * {
+  border-color: hsl(var(--border));
+}
+
+.neon-glow {
+  box-shadow: 0 0 10px 0px hsl(var(--primary) / 0.5), 0 0 20px 0px hsl(var(--primary) / 0.3);
+}
+
+.neon-text-glow {
+  text-shadow: 0 0 10px hsl(var(--primary) / 0.7), 0 0 20px hsl(var(--primary) / 0.5);
+}
+
+/* ── Deliberate brand flourish: animated imperial-gold gradient ─────────────
+   This multi-stop metallic effect intentionally exceeds the flat primary token. */
+.imperial-gold {
+  background: linear-gradient(135deg, #C9A84C 0%, #FFE066 40%, #C9A84C 60%, #A67C2E 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% auto;
+  animation: imperial-shimmer 4s linear infinite;
+}
+
+@keyframes imperial-shimmer {
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes star-twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(1); }
+  50%       { opacity: 0.9;  transform: scale(1.4); }
+}
+
+@keyframes throne-pulse {
+  0%, 100% { box-shadow: 0 0 8px 0px #C9A84C30, inset 0 0 8px 0px #C9A84C10; }
+  50%       { box-shadow: 0 0 24px 4px #C9A84C60, inset 0 0 16px 0px #C9A84C20; }
+}
+
+@keyframes empire-rise {
+  0%   { opacity: 0; transform: translateY(32px) scale(0.97); }
+  100% { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+@keyframes oracle-scan {
+  0%   { transform: translateX(-100%); opacity: 0; }
+  20%  { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateX(100%);  opacity: 0; }
+}
+
+.imperial-border {
+  border: 1px solid #C9A84C50;
+  box-shadow: 0 0 12px #C9A84C20;
+  animation: throne-pulse 3s ease-in-out infinite;
+}
+
+.imperial-decree {
+  background: linear-gradient(90deg, transparent, #C9A84C18, transparent);
+  border-top: 1px solid #C9A84C30;
+  border-bottom: 1px solid #C9A84C30;
+}
+
+.territory-card:hover {
+  border-color: #C9A84C80 !important;
+  box-shadow: 0 0 20px #C9A84C20;
+  transform: translateY(-2px);
+}
+
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-33.33%); }
+}
+
+/* [GDNA Arena] - إفكتات القصر الملكي */
+.msg-you:hover { background: hsl(var(--primary) / 0.2); transform: translateX(-3px); }
+.msg-ai:hover { background: #2a3a48; transform: translateX(3px); }
+.chat-box img:hover { transform: scale(1.1); border: 2px solid hsl(var(--primary)); }
+.chat-box, .msg-you, .msg-ai { transition: all 0.3s ease-in-out; }
+#micBtn:hover { background: hsl(var(--primary)); box-shadow: 0 0 10px hsl(var(--primary)); }
+.royal-btn { transition: all 0.3s ease-in-out; }
+.royal-btn:hover:not(:disabled) { transform: scale(1.05); box-shadow: 0 0 15px hsl(var(--primary)); }
+
+/* [Arena Qaisypro] - هيبة الإمبراطورية للموبايل */
+@media (max-width: 768px) {
+  .hero-name {
+    font-size: 32px !important; /* Qaisypro2026 كبيرة وتضرب فـ العين */
+    color: hsl(var(--primary)) !important;
+    text-shadow: 0 0 10px hsl(var(--primary)); /* توهج خفيف باش تبان فخمة */
+    margin-bottom: 15px !important;
+  }
+  .hero-name span {
+    color: hsl(var(--primary)) !important;
+    background: none !important;
+    -webkit-text-fill-color: hsl(var(--primary)) !important;
+  }
+  .hero-sub {
+    font-size: 14px !important; /* الوصف يصغر باش العنوان يبان هو الملك */
+    color: hsl(var(--primary)) !important;
+    margin-bottom: 25px !important;
+  }
+  .royal-btn {
+    width: 90%; /* سهل الضغط بالصبع */
+    padding: 16px !important;
+    font-size: 18px !important;
+    background: linear-gradient(90deg, hsl(var(--primary)), #ffc107) !important; /* deliberate metallic-gold flourish */
+    box-shadow: 0 0 15px hsl(var(--primary));
+  }
+  .palace {
+    margin: 30px 10px !important;
+    border: 1px solid hsl(var(--primary)) !important;
+  }
+}
+
