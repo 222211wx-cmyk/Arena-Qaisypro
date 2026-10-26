@@ -1,5 +1,5 @@
 {
-  "name": "@workspace/gdna-arena",
+  "name": "@latest/gdna-arena",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -55,8 +55,8 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
-    "@workspace/api-client-react": "workspace:*",
-    "@workspace/gdna-ds": "workspace:*",
+    "@latest/api-client-react": "latest:*",
+    "@latest/gdna-ds": "latest:*",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "cmdk": "^1.1.1",
