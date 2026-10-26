@@ -51,9 +51,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [authUnavailable, setAuthUnavailable] = useState(false);
+  const [authDetail, setAuthDetail] = useState("");
   const [initialVerified, setInitialVerified] = useState(false);
   const [recoveryAccessPending, setRecoveryAccessPending] = useState(false);
-  const authError = authUnavailable ? copy.unavailable : null;
+  const authError = authUnavailable ? `${copy.unavailable}${authDetail ? ` ${authDetail}` : ""}` : null;
   const authGenerationRef = useRef(0);
   const authRequestRef = useRef<AbortController | null>(null);
   const verifiedIdRef = useRef<number | null | undefined>(undefined);
@@ -93,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const verifyUser = async (announce: boolean) => {
     const { controller, generation } = beginAuthRequest();
+    setAuthDetail("");
     if (recoveryDestinationRef.current) setLoading(true);
     try {
       const res = await fetch(apiPath("/api/auth/me"), {
@@ -128,10 +130,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setInitialVerified(true);
       } else {
         // A gateway error, rate limit, or outage is not a revoked cookie.
+        setAuthDetail(`Session API returned HTTP ${res.status}. Check the authenticated Arena backend.`);
         setAuthUnavailable(true);
       }
     } catch (error) {
       if (generation === authGenerationRef.current && !controller.signal.aborted) {
+        setAuthDetail(error instanceof Error ? error.message : "Session request failed");
         setAuthUnavailable(true);
       }
     } finally {

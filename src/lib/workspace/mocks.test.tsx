@@ -26,13 +26,14 @@ const wrapper = ({ children }: { children: ReactNode }) => (
     {children}
   </QueryClientProvider>
 );
-describe("explicit standalone mocks", () => {
-  it("returns empty read data without a network request", async () => {
+describe("Supabase reads and unsupported legacy operations", () => {
+  it("reports missing Supabase configuration instead of empty mock data", async () => {
     const fetch = vi.spyOn(globalThis, "fetch");
     const { result } = renderHook(() => useGetGsDomains(), { wrapper });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toEqual({ domains: [] });
-    expect(await listMessagingSubscriptions()).toEqual([]);
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error?.message).toContain("Supabase is not configured");
+    expect(result.current.data).toBeUndefined();
+    await expect(listMessagingSubscriptions()).rejects.toThrow(MOCK_UNAVAILABLE);
     expect(fetch).not.toHaveBeenCalled();
     fetch.mockRestore();
   });

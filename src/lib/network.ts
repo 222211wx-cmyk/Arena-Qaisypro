@@ -1,3 +1,4 @@
+import { apiOrigin } from "./api-transport";
 const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const xhrRequests = new WeakMap<XMLHttpRequest, { method: string; url: string }>();
@@ -94,13 +95,15 @@ export function installOfflineNetworkGuards() {
   });
 }
 
-/** Same-origin API path that continues to work when the artifact has a base path. */
+/** Uses the configured backend origin, otherwise respects the artifact base path. */
 export function apiPath(path: string): string {
   if (!path.startsWith("/api/")) throw new Error(`API paths must start with /api/: ${path}`);
-  return `${base}${path}`;
+  const origin = apiOrigin();
+  return origin ? `${origin}${path}` : `${base}${path}`;
 }
 
 export function websocketUrl(path = "/api/ws"): string {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.host}${apiPath(path)}`;
+  const url = new URL(apiPath(path), window.location.origin);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  return url.toString();
 }

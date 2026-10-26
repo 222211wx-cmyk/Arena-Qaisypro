@@ -1,4 +1,7 @@
+import { installApiTransport } from "./lib/api-transport";
 import { getAutoLiteReferral, getNetworkState, shouldAutoRedirectToLite } from "./lib/network-detect";
+
+installApiTransport();
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const rawRoute = window.location.pathname.slice(base.length) || "/";

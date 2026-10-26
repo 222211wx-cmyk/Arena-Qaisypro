@@ -1,4 +1,7 @@
+import { installApiTransport } from "./lib/api-transport";
 import { mountLite } from "./lite-entry";
+
+installApiTransport();
 
 mountLite(document.getElementById("lite-root")!);
 

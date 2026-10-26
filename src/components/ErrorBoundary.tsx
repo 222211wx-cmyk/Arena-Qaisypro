@@ -3,7 +3,7 @@ import { useLang, type Lang } from "@/contexts/LangContext";
 import { sharedCopy } from "@/i18n/shared-components-copy";
 
 interface Props { children: ReactNode; lang: Lang }
-interface State { hasError: boolean }
+interface State { hasError: boolean; message?: string }
 
 /**
  * Global crash guard — one bad API response or render error must never
@@ -12,8 +12,8 @@ interface State { hasError: boolean }
 class LocalizedErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false };
 
-  static getDerivedStateFromError(): State {
-    return { hasError: true };
+  static getDerivedStateFromError(error: unknown): State {
+    return { hasError: true, message: error instanceof Error ? error.message : "Unknown render error" };
   }
 
   componentDidCatch(error: unknown) {
@@ -37,9 +37,10 @@ class LocalizedErrorBoundary extends Component<Props, State> {
           <p style={{ color: "hsl(var(--muted-foreground))", maxWidth: 420 }}>
             {copy.text}
           </p>
+          <pre role="alert" style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxWidth: 600 }}>{this.state.message}</pre>
           <div style={{ display: "flex", gap: "0.75rem" }}>
             <button
-              onClick={() => this.setState({ hasError: false })}
+              onClick={() => this.setState({ hasError: false, message: undefined })}
               style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))", padding: "0.6rem 1.4rem", borderRadius: 8, fontWeight: 700, border: "none", cursor: "pointer" }}
             >
               {copy.retry}
