@@ -5,7 +5,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 describe("section error recovery", () => {
   it("shows the actual error and sends retry home without an API call", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-    function Section() {
+    function Section(): React.ReactNode {
       throw new Error("API returned HTML instead of JSON");
     }
     render(<ErrorBoundary><Section /></ErrorBoundary>);
