@@ -14,7 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLang } from "@/contexts/LangContext";
 import { offlineRecoveryCopy, offlineRecoveryErrorKind, type OfflineRecoveryCopy } from "@/i18n/offline-recovery-copy";
 import { useRecoveryReminderPreference } from "@/hooks/use-recovery-reminder-preference";
-import { isRecoveryCodeExpiringSoon, recoveryReminderCopy } from "../../../../../lib/recovery-code-reminder";
+import { isRecoveryCodeExpiringSoon, recoveryReminderCopy } from "@/lib/workspace/recovery-reminder";
 
 const NO_STORE: RequestInit = { cache: "no-store", credentials: "include" };
 

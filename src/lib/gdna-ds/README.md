@@ -9,12 +9,15 @@ notifications use Sonner. Tailwind 3 compiles the local theme CSS.
 These are local defaults, not an exact copy of the missing upstream design
 system. Visual comparison with the original theme is still needed.
 
-## Not a complete production-build fix
+## Mock backend
 
-`@workspace/api-client-react` remains missing. Its original implementation or
-OpenAPI/endpoint contracts are required to preserve account recovery,
-withdrawals, voting, messaging subscriptions, and thumbnail admin behavior.
-Do not externalize this package or replace it with mock successes.
+The missing API-client package now resolves to `../workspace/api-client-react.ts`.
+Read hooks return empty lists. Recovery status and all mutations reject with a
+mock-mode error, so the UI never falsely confirms password resets, recovery
+codes, votes, withdrawals, subscription changes, or thumbnail repairs.
 
-This checkout also references an absent shared recovery-code-reminder module
-outside the repository. Restore that implementation before releasing.
+The recovery reminder compatibility module never schedules notifications.
+A visible banner identifies standalone mock mode. These mocks restore bundling,
+not backend functionality. Replace them with real contracts before enabling
+those workflows. No generic workspace catch-all is used: only packages actually
+imported by this checkout are mapped, so future missing imports still fail loudly.

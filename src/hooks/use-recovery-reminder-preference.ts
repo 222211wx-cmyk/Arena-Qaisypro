@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { recoveryReminderPreferenceKey } from "../../../../lib/recovery-code-reminder";
+import { recoveryReminderPreferenceKey } from "@/lib/workspace/recovery-reminder";
 
 /** Persist only opt-in, never recovery material; each account owns its choice. */
 export function useRecoveryReminderPreference(userId: number | undefined) {
