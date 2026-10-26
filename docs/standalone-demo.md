@@ -1,3 +1,6 @@
+> Historical documentation: standalone mode is now disabled. See `full-arena.md`.
+> The behavior described below is not the current application behavior.
+
 # Standalone Arena demo
 
 No backend or environment variables are needed to open the app. The HTML banner

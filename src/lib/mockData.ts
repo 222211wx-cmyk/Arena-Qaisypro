@@ -1,5 +1,5 @@
 /** Explicit local demonstration data. Never represents real accounts or money. */
-export const STANDALONE_MODE = true;
+export const STANDALONE_MODE = false;
 const SESSION_KEY = "arena:demo:session:v1";
 export const guestUser = {
   id: 1, name: "Guest", username: "Guest", balance: 1000, xp: 0,

@@ -21,24 +21,21 @@ describe("API JSON diagnostics", () => {
       .toEqual({ error: "unauthorized" });
     expect(await readApiJson(new Response(null, { status: 204 }))).toBeNull();
   });
-  it("never sends API requests to the network, even if an old API origin remains configured", async () => {
+  it("routes real API requests to the configured backend instead of demo fixtures", async () => {
     vi.stubEnv("VITE_API_URL", "https://backend.example.com");
-    const fetch = vi.fn(async () => new Response("<!DOCTYPE html>"));
+    const fetch = vi.fn(async () => Response.json({ id: 7, username: "Citizen" }));
     window.fetch = fetch;
     installApiTransport();
     const response = await window.fetch("/api/auth/me");
-    expect((await response.json()).username).toBe("Guest");
-    expect(fetch).not.toHaveBeenCalled();
-    await window.fetch("/assets/app.js");
-    expect(fetch).toHaveBeenCalledWith("/assets/app.js", undefined);
-    expect(apiOrigin()).toBe("");
+    expect((await response.json()).username).toBe("Citizen");
+    expect(fetch).toHaveBeenCalledWith("https://backend.example.com/api/auth/me", undefined);
+    expect(apiOrigin()).toBe("https://backend.example.com");
   });
-  it("returns explicit JSON unavailability for unsupported shared services, never HTML", async () => {
-    window.fetch = vi.fn();
+  it("does not fabricate successful shared services without a backend", async () => {
+    vi.stubEnv("VITE_API_URL", "");
+    window.fetch = vi.fn(async () => new Response("<!DOCTYPE html>"));
     installApiTransport();
     const response = await window.fetch("/api/finance/manual-payouts", { method: "POST" });
-    expect(response.status).toBe(501);
-    expect((await response.json()).demo).toBe(true);
+    await expect(response.json()).rejects.toThrow("API returned HTML");
   });
-
 });
