@@ -11,7 +11,6 @@ import { LangProvider } from "@/contexts/LangContext";
 import { LegalProvider } from "@/contexts/LegalContext";
 import { GlobalCallBoundary } from "@/contexts/GlobalCallBoundary";
 import { ConnectivityProvider } from "@/contexts/ConnectivityContext";
-import { ConnectivityBanner } from "@/components/ConnectivityBanner";
 import CookieBanner from "@/components/legal/CookieBanner";
 import AgeGate from "@/components/legal/AgeGate";
 import GeoBlock from "@/components/legal/GeoBlock";
@@ -300,7 +299,6 @@ function App() {
       <TooltipProvider>
         <LangProvider>
           <ConnectivityProvider>
-            <ConnectivityBanner />
             <LegalProvider>
               <AuthProvider>
                 <GlobalCallBoundary>

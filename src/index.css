@@ -246,3 +246,61 @@
   }
 }
 
+
+/* Arena dark navy / gold / sky-blue theme. Keep tokens aligned so shared
+   Tailwind components and the legacy citizen-light subtree use the same palette. */
+:root,
+.dark,
+.citizen-light {
+  color-scheme: dark;
+  --background: 225 44.4% 7.1%;
+  --foreground: 45.9 64.6% 52.4%;
+  --card: 226.2 39.4% 12.9%;
+  --card-foreground: 45.9 64.6% 52.4%;
+  --popover: 226.2 39.4% 12.9%;
+  --popover-foreground: 45.9 64.6% 52.4%;
+  --primary: 45.9 64.6% 52.4%;
+  --primary-foreground: 225 44.4% 7.1%;
+  --secondary: 220.9 39.3% 11%;
+  --secondary-foreground: 195.1 100% 50%;
+  --muted: 226.2 39.4% 12.9%;
+  --muted-foreground: 213 32% 75%;
+  --accent: 195.1 100% 50%;
+  --accent-foreground: 225 44.4% 7.1%;
+  --border: 45.9 64.6% 52.4%;
+  --input: 195.1 100% 50%;
+  --ring: 195.1 100% 50%;
+}
+
+body {
+  background-color: #0A0E1A !important;
+  background-image: linear-gradient(135deg, #0A0E1A 0%, #111827 100%);
+  color: #D4AF37;
+}
+
+h1, h2, h3, .title {
+  color: #FFD700 !important;
+  -webkit-text-fill-color: #FFD700;
+}
+
+.text-primary { color: #D4AF37; }
+.text-accent, .highlight, a, .link, button.primary, .accent {
+  color: #00BFFF !important;
+  border-color: #00BFFF;
+}
+
+.card {
+  background: #141A2E !important;
+  border: 1px solid #D4AF37;
+}
+
+button, .royal-btn {
+  background: linear-gradient(90deg, #D4AF37, #00BFFF) !important;
+  color: #0A0E1A !important;
+  font-weight: bold;
+}
+/* Button-as-link controls need the same legible foreground as native buttons. */
+a.bg-primary {
+  background: linear-gradient(90deg, #D4AF37, #00BFFF);
+  color: #0A0E1A !important;
+}
