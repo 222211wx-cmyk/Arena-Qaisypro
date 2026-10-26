@@ -1,12 +1,13 @@
-/** Standalone MOCK backend: reads are empty; mutations never claim success. */
+/** Supabase-backed public reads. Legacy privileged operations require the original backend. */
 import {
   useMutation,
   useQuery,
   type UseQueryOptions,
 } from "@tanstack/react-query";
-export const WORKSPACE_MOCK_MODE = true;
+import { supabase } from "../supabase";
+import { mockTables, mockFigures } from "../mockData";
 export const MOCK_UNAVAILABLE =
-  "Backend unavailable in standalone mock mode. No changes were saved.";
+  "This operation requires the authenticated Arena backend. No changes were saved.";
 export async function unavailable(): Promise<never> {
   throw new Error(MOCK_UNAVAILABLE);
 }
@@ -15,13 +16,6 @@ type Options<T> = {
   query?: Partial<UseQueryOptions<T, Error>>;
   request?: RequestInit;
 };
-function useEmpty<T>(key: readonly unknown[], data: T, options?: Options<T>) {
-  return useQuery<T, Error>({
-    queryKey: key,
-    queryFn: async () => data,
-    ...options?.query,
-  });
-}
 export type OfflineRecoveryStatus = {
   active: boolean;
   expiresAt: string | null;
@@ -104,24 +98,70 @@ export interface TickerItem {
   text: string;
   isBreaking: boolean;
 }
-export const useGetGsDomains = () =>
-  useEmpty(["mock", "domains"], { domains: [] as Domain[] });
-export const useGetGsRanking = () =>
-  useEmpty(getGetGsRankingQueryKey(), {
-    ranking: [] as Ranking[],
-    updatedAt: "",
-  });
-export const useGetGsFigures = (params?: Params) =>
-  useEmpty(getGetGsFiguresQueryKey(params), { figures: [] as Figure[] });
-export const useGetGsNews = (params?: Params) =>
-  useEmpty(["mock", "news", params], { articles: [] as Article[] });
-export const useGetGsTraditions = (params?: Params) =>
-  useEmpty(["mock", "traditions", params], { traditions: [] as Tradition[] });
-export const useGetGsTicker = () =>
-  useEmpty(["mock", "ticker"], { items: [] as TickerItem[] });
-// A missing figure follows the page's existing not-found branch.
-export const useGetGsFigure = (id: number) =>
-  useEmpty<Figure | null>(getGetGsFigureQueryKey(id), null);
+async function rows<T>(table: string, params?: Params, order = "id", ascending = true): Promise<T[]> {
+  if (!supabase) {
+    let data = [...(mockTables[table] ?? [])] as Record<string, unknown>[];
+    for (const field of ["domain", "category", "country"]) {
+      if (params?.[field]) data = data.filter(row => row[field] === params[field]);
+    }
+    const limit = Number(params?.limit);
+    if (Number.isSafeInteger(limit) && limit > 0) data = data.slice(0, Math.min(limit, 100));
+    return data as T[];
+  }
+  let query = supabase.from(table).select("*").order(order, { ascending });
+  for (const field of ["domain", "category", "country"]) {
+    if (params?.[field]) query = query.eq(field, params[field]);
+  }
+  if (params?.limit) {
+    const limit = Number(params.limit);
+    if (Number.isSafeInteger(limit) && limit > 0) query = query.limit(Math.min(limit, 100));
+  }
+  const { data, error } = await query;
+  if (error) throw new Error(`Supabase ${table}: ${error.message}`);
+  return (data ?? []) as T[];
+}
+export const useGetGsDomains = () => useQuery({
+  queryKey: ["/api/gs/domains"],
+  queryFn: async () => ({ domains: await rows<Domain>("gs_domains") }),
+});
+export const useGetGsRanking = () => useQuery({
+  queryKey: getGetGsRankingQueryKey(),
+  queryFn: async () => {
+    const [domains, figures] = await Promise.all([
+      rows<Domain>("gs_domains"), rows<Figure>("gs_figures", undefined, "rank"),
+    ]);
+    return {
+      ranking: domains.map(domain => ({ domain: domain.id, domainLabel: domain.label,
+        icon: domain.icon, figures: figures.filter(figure => figure.domain === domain.id) })),
+      updatedAt: "", // No authoritative ranking update time exists in this checkout.
+    };
+  },
+});
+export const useGetGsFigures = (params?: Params) => useQuery({
+  queryKey: getGetGsFiguresQueryKey(params),
+  queryFn: async () => ({ figures: await rows<Figure>("gs_figures", params, "rank") }),
+});
+export const useGetGsNews = (params?: Params) => useQuery({
+  queryKey: ["/api/gs/news", params],
+  queryFn: async () => ({ articles: await rows<Article>("gs_articles", params, "publishedAt", false) }),
+});
+export const useGetGsTraditions = (params?: Params) => useQuery({
+  queryKey: ["/api/gs/traditions", params],
+  queryFn: async () => ({ traditions: await rows<Tradition>("gs_traditions", params) }),
+});
+export const useGetGsTicker = () => useQuery({
+  queryKey: ["/api/gs/ticker"],
+  queryFn: async () => ({ items: await rows<TickerItem>("gs_ticker") }),
+});
+export const useGetGsFigure = (id: number) => useQuery<Figure | null, Error>({
+  queryKey: getGetGsFigureQueryKey(id),
+  queryFn: async () => {
+    if (!supabase) return mockFigures.find(figure => figure.id === id) ?? null;
+    const { data, error } = await supabase.from("gs_figures").select("*").eq("id", id).maybeSingle();
+    if (error) throw new Error(`Supabase gs_figures: ${error.message}`);
+    return data as Figure | null;
+  },
+});
 export const useGetRecoveryCodeStatus = (
   options?: Options<OfflineRecoveryStatus>,
 ) =>
@@ -139,17 +179,24 @@ export const useGetExhaustedClipThumbnails = (
     maxAttempts: number;
   }>,
 ) =>
-  useEmpty(
-    getGetExhaustedClipThumbnailsQueryKey(params),
-    { clips: [] as ExhaustedClipThumbnail[], nextBefore: null, maxAttempts: 0 },
-    options,
-  );
+  useQuery({
+    queryKey: getGetExhaustedClipThumbnailsQueryKey(params),
+    queryFn: unavailable,
+    retry: false,
+    ...options?.query,
+  });
 export const useVoteGsFigure = () =>
   useMutation<
     { newVotes: number; newRank: number },
     Error,
     { figureId: number }
-  >({ mutationFn: unavailable });
+  >({ mutationFn: async ({ figureId }) => {
+    if (supabase) return unavailable(); // No public write policy on the optional real DB.
+    const figure = mockFigures.find(figure => figure.id === figureId);
+    if (!figure) throw new Error("Demo figure not found");
+    figure.votes += 1;
+    return { newVotes: figure.votes, newRank: figure.rank };
+  } });
 export const useSendArenaWithdrawRequest = () =>
   useMutation<{ content: string }, Error, { data: { gameId: string } }>({
     mutationFn: unavailable,
@@ -177,7 +224,7 @@ export async function redeemRecoveryCode(
 export async function listMessagingSubscriptions(): Promise<
   { id: number; username: string; hasActiveSubscription: boolean }[]
 > {
-  return [];
+  return unavailable();
 }
 export async function updateMessagingSubscription(
   _id: number,
