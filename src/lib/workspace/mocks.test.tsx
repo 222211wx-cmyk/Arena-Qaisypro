@@ -27,12 +27,11 @@ const wrapper = ({ children }: { children: ReactNode }) => (
   </QueryClientProvider>
 );
 describe("Supabase reads and unsupported legacy operations", () => {
-  it("reports missing Supabase configuration instead of empty mock data", async () => {
+  it("uses sample data without a Supabase key or network request", async () => {
     const fetch = vi.spyOn(globalThis, "fetch");
     const { result } = renderHook(() => useGetGsDomains(), { wrapper });
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(result.current.error?.message).toContain("Supabase is not configured");
-    expect(result.current.data).toBeUndefined();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.domains.length).toBeGreaterThan(0);
     await expect(listMessagingSubscriptions()).rejects.toThrow(MOCK_UNAVAILABLE);
     expect(fetch).not.toHaveBeenCalled();
     fetch.mockRestore();
@@ -51,12 +50,10 @@ describe("Supabase reads and unsupported legacy operations", () => {
       updateMessagingSubscription(1, { hasActiveSubscription: true }),
     ).rejects.toThrow(MOCK_UNAVAILABLE);
   });
-  it("routes vote mutations through the error path, never success", async () => {
+  it("records demo votes locally", async () => {
     const { result } = renderHook(() => useVoteGsFigure(), { wrapper });
-    await expect(result.current.mutateAsync({ figureId: 1 })).rejects.toThrow(
-      MOCK_UNAVAILABLE,
-    );
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(result.current.isSuccess).toBe(false);
+    const data = await result.current.mutateAsync({ figureId: 1 });
+    expect(data.newVotes).toBeGreaterThan(0);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
   });
 });

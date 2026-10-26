@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-const { from, requireSupabase } = vi.hoisted(() => ({ from: vi.fn(), requireSupabase: vi.fn() }));
-vi.mock("../supabase", () => ({ requireSupabase }));
+const { from } = vi.hoisted(() => ({ from: vi.fn() }));
+vi.mock("../supabase", () => ({ supabase: { from } }));
 import { useGetGsDomains } from "./api-client-react";
 const wrapper = ({ children }: { children: ReactNode }) => (
   <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -15,7 +15,6 @@ describe("Supabase read integration", () => {
     const domains = [{ id: "sports", label: "Sports", icon: "", figureCount: 1, totalVotes: 2 }];
     const order = vi.fn().mockResolvedValue({ data: domains, error: null });
     from.mockReturnValue({ select: () => ({ order }) });
-    requireSupabase.mockReturnValue({ from });
     const { result } = renderHook(() => useGetGsDomains(), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(from).toHaveBeenCalledWith("gs_domains");

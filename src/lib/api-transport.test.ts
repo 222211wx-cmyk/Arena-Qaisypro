@@ -21,28 +21,24 @@ describe("API JSON diagnostics", () => {
       .toEqual({ error: "unauthorized" });
     expect(await readApiJson(new Response(null, { status: 204 }))).toBeNull();
   });
-  it("routes legacy and apiPath callers to a configured backend without touching assets", async () => {
+  it("never sends API requests to the network, even if an old API origin remains configured", async () => {
     vi.stubEnv("VITE_API_URL", "https://backend.example.com");
-    const fetch = vi.fn(async () => new Response('{"ok":true}'));
+    const fetch = vi.fn(async () => new Response("<!DOCTYPE html>"));
     window.fetch = fetch;
     installApiTransport();
-    await expect((await window.fetch("/api/auth/me", { credentials: "include" })).json())
-      .resolves.toEqual({ ok: true });
-    expect(fetch).toHaveBeenLastCalledWith("https://backend.example.com/api/auth/me", { credentials: "include" });
+    const response = await window.fetch("/api/auth/me");
+    expect((await response.json()).username).toBe("Guest");
+    expect(fetch).not.toHaveBeenCalled();
     await window.fetch("/assets/app.js");
-    expect(fetch).toHaveBeenLastCalledWith("/assets/app.js", undefined);
+    expect(fetch).toHaveBeenCalledWith("/assets/app.js", undefined);
+    expect(apiOrigin()).toBe("");
   });
-  it("guards API JSON reads globally but leaves other fetches intact", async () => {
-    vi.stubEnv("VITE_API_URL", "");
-    window.fetch = vi.fn(async () => new Response("<html>app</html>"));
+  it("returns explicit JSON unavailability for unsupported shared services, never HTML", async () => {
+    window.fetch = vi.fn();
     installApiTransport();
-    await expect((await window.fetch("/api/auth/me")).json()).rejects.toThrow("API returned HTML");
-    expect(await (await window.fetch("/assets/example.html")).text()).toBe("<html>app</html>");
+    const response = await window.fetch("/api/finance/manual-payouts", { method: "POST" });
+    expect(response.status).toBe(501);
+    expect((await response.json()).demo).toBe(true);
   });
-  it("rejects paths and embedded credentials in the backend origin", () => {
-    vi.stubEnv("VITE_API_URL", "https://backend.example.com/api");
-    expect(apiOrigin).toThrow("origin only");
-    vi.stubEnv("VITE_API_URL", "https://name:password@backend.example.com");
-    expect(apiOrigin).toThrow("origin only");
-  });
+
 });

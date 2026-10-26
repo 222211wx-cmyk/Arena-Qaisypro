@@ -4,7 +4,8 @@ import {
   useQuery,
   type UseQueryOptions,
 } from "@tanstack/react-query";
-import { requireSupabase } from "../supabase";
+import { supabase } from "../supabase";
+import { mockTables, mockFigures } from "../mockData";
 export const MOCK_UNAVAILABLE =
   "This operation requires the authenticated Arena backend. No changes were saved.";
 export async function unavailable(): Promise<never> {
@@ -98,7 +99,16 @@ export interface TickerItem {
   isBreaking: boolean;
 }
 async function rows<T>(table: string, params?: Params, order = "id", ascending = true): Promise<T[]> {
-  let query = requireSupabase().from(table).select("*").order(order, { ascending });
+  if (!supabase) {
+    let data = [...(mockTables[table] ?? [])] as Record<string, unknown>[];
+    for (const field of ["domain", "category", "country"]) {
+      if (params?.[field]) data = data.filter(row => row[field] === params[field]);
+    }
+    const limit = Number(params?.limit);
+    if (Number.isSafeInteger(limit) && limit > 0) data = data.slice(0, Math.min(limit, 100));
+    return data as T[];
+  }
+  let query = supabase.from(table).select("*").order(order, { ascending });
   for (const field of ["domain", "category", "country"]) {
     if (params?.[field]) query = query.eq(field, params[field]);
   }
@@ -146,7 +156,8 @@ export const useGetGsTicker = () => useQuery({
 export const useGetGsFigure = (id: number) => useQuery<Figure | null, Error>({
   queryKey: getGetGsFigureQueryKey(id),
   queryFn: async () => {
-    const { data, error } = await requireSupabase().from("gs_figures").select("*").eq("id", id).maybeSingle();
+    if (!supabase) return mockFigures.find(figure => figure.id === id) ?? null;
+    const { data, error } = await supabase.from("gs_figures").select("*").eq("id", id).maybeSingle();
     if (error) throw new Error(`Supabase gs_figures: ${error.message}`);
     return data as Figure | null;
   },
@@ -179,7 +190,13 @@ export const useVoteGsFigure = () =>
     { newVotes: number; newRank: number },
     Error,
     { figureId: number }
-  >({ mutationFn: unavailable });
+  >({ mutationFn: async ({ figureId }) => {
+    if (supabase) return unavailable(); // No public write policy on the optional real DB.
+    const figure = mockFigures.find(figure => figure.id === figureId);
+    if (!figure) throw new Error("Demo figure not found");
+    figure.votes += 1;
+    return { newVotes: figure.votes, newRank: figure.rank };
+  } });
 export const useSendArenaWithdrawRequest = () =>
   useMutation<{ content: string }, Error, { data: { gameId: string } }>({
     mutationFn: unavailable,

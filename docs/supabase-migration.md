@@ -1,3 +1,6 @@
+> Superseded for the current standalone deployment: see `standalone-demo.md`.
+> The notes below describe optional backend migration preparation, not runtime requirements.
+
 # Supabase/backend preparation — not a completed production migration
 
 ## Inventory

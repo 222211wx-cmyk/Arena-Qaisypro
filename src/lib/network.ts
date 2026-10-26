@@ -1,3 +1,4 @@
+import { STANDALONE_MODE } from "./mockData";
 import { apiOrigin } from "./api-transport";
 const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -29,6 +30,7 @@ function reportBlockedMutation(method: string, url: string) {
 }
 
 export function canPerformNetworkMutation(method = "POST", url = "") {
+  if (STANDALONE_MODE && url.includes("/api/")) return true;
   if (browserOnline || !mutationMethod(method)) return true;
   reportBlockedMutation(method.toUpperCase(), url);
   return false;
@@ -52,7 +54,7 @@ export function installOfflineNetworkGuards() {
   window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
     const url = input instanceof Request ? input.url : String(input);
-    if (!browserOnline && mutationMethod(method)) {
+    if (!browserOnline && mutationMethod(method) && !(STANDALONE_MODE && url.includes("/api/"))) {
       reportBlockedMutation(method, url);
       return Promise.reject(new OfflineMutationError(method, url));
     }

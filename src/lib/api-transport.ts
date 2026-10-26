@@ -1,3 +1,4 @@
+import { demoApi, STANDALONE_MODE } from "./mockData";
 /** Shared diagnostics for every API fetch, including legacy callers using BASE_URL. */
 export async function readApiJson(response: Response): Promise<unknown> {
   const type = response.headers.get("content-type") ?? "";
@@ -15,6 +16,7 @@ export async function readApiJson(response: Response): Promise<unknown> {
 }
 
 export function apiOrigin(): string {
+  if (STANDALONE_MODE) return "";
   const value = import.meta.env.VITE_API_URL?.trim();
   if (!value) return "";
   const parsed = new URL(value);
@@ -38,6 +40,14 @@ export function installApiTransport() {
     const url = new URL(input instanceof Request ? input.url : String(input), location.origin);
     const localApi = url.origin === location.origin && url.pathname.startsWith(prefix);
     const remoteApi = !!origin && url.origin === origin && url.pathname.startsWith("/api/");
+    if (STANDALONE_MODE && (localApi || remoteApi)) {
+      let body: Record<string, unknown> = {};
+      try {
+        const raw = init?.body ?? (input instanceof Request ? await input.clone().text() : undefined);
+        if (typeof raw === "string" && raw) body = JSON.parse(raw);
+      } catch { /* Local mock endpoints validate the fields they consume. */ }
+      return demoApi(`${url.pathname.slice(base.length)}${url.search}`, init?.method ?? (input instanceof Request ? input.method : "GET"), body);
+    }
     let request = input;
     if (localApi && origin) {
       const destination = `${origin}${url.pathname.slice(base.length)}${url.search}`;

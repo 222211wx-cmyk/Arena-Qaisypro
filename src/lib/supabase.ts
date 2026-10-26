@@ -7,6 +7,8 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
 // Never put service-role or GDNA provider credentials in a VITE_ variable.
 export const supabase = url && anonKey ? createClient(url, anonKey) : null;
 
+export const isSupabaseConfigured = !!supabase;
+
 export function requireSupabase() {
   if (!supabase) {
     throw new Error("Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then rebuild.");

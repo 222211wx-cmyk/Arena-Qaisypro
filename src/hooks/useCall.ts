@@ -1,3 +1,4 @@
+import { STANDALONE_MODE } from "@/lib/mockData";
 // ══════════════════════════════════════════════════════════════════════════════
 //  useCall — authenticated WebSocket signaling + Agora/WebRTC media.
 //  Agora invitations publish a null offer and open media only after durable
@@ -1752,7 +1753,7 @@ export function useCall(user: { id: number; username: string } | null) {
       generation === identityGenerationRef.current &&
       (!ws || wsRef.current === ws);
 
-    if (!user) {
+    if (!user || STANDALONE_MODE) {
       setRealtimeConnected();
       wasConnectedRef.current = false;
       reconnectAttemptRef.current = 0;

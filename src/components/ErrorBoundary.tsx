@@ -39,12 +39,13 @@ class LocalizedErrorBoundary extends Component<Props, State> {
           </p>
           <pre role="alert" style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxWidth: 600 }}>{this.state.message}</pre>
           <div style={{ display: "flex", gap: "0.75rem" }}>
-            <button
-              onClick={() => this.setState({ hasError: false, message: undefined })}
+            <a
+              role="button"
+              href={import.meta.env.BASE_URL}
               style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))", padding: "0.6rem 1.4rem", borderRadius: 8, fontWeight: 700, border: "none", cursor: "pointer" }}
             >
               {copy.retry}
-            </button>
+            </a>
             <button
               onClick={() => { window.location.href = import.meta.env.BASE_URL; }}
               style={{ background: "transparent", color: "hsl(var(--primary))", padding: "0.6rem 1.4rem", borderRadius: 8, fontWeight: 700, border: "1px solid hsl(var(--primary))", cursor: "pointer" }}
