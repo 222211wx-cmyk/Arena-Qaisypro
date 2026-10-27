@@ -1,23 +1,8 @@
 {
   "rewrites": [
-    {
-      "source": "/api/clips/stream",
-      "destination": "/api/clips/stream"
-    },
-    {
-      "source": "/api/clips/:id(\\d+)",
-      "destination": "/api/clip?id=:id"
-    },
-    {
-      "source": "/api/:path*",
-      "destination": "/api/:path*"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ],
-  "buildCommand": "npm run build",
-  "installCommand": "npm install --legacy-peer-deps",
-  "outputDirectory": "dist"
+    { "source": "/api/auth/:path*", "destination": "/api/auth/:path*" },
+    { "source": "/api/upload/:path*", "destination": "/api/upload/:path*" },
+    { "source": "/api/clips/:path*", "destination": "/api/clips/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
