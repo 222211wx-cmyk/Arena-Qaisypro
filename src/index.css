@@ -247,7 +247,7 @@
 }
 
 
-/* Shared black and gold tokens; landing-page geometry lives in home.css. */
+/* Shared black and gold tokens for the full Arena shell. */
 :root, .dark, .citizen-light {
   color-scheme: dark;
   --background: 0 0% 0%;
@@ -270,6 +270,7 @@
 }
 
 body {
+  font-family: "Cairo", sans-serif;
   background-color: #000;
   background-image: none;
 }

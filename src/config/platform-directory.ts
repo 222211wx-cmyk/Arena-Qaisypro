@@ -54,6 +54,13 @@ export const DIRECTORY: DirectoryEntry[] = [
   { id: "ameeq", route: "/ameeq", icon: Sparkles, names: n("عميق", "Ameeq", "Ameeq", "Ameeq", "Ameeq") },
 ];
 
+/** Last becomes first; pin the explicitly requested endpoints without dropping sections. */
+export const HOME_DIRECTORY = [
+  ...DIRECTORY.filter(section => section.id === "leaderboard"),
+  ...[...DIRECTORY].reverse().filter(section => !["leaderboard", "messages"].includes(section.id)),
+  ...DIRECTORY.filter(section => section.id === "messages"),
+];
+
 export const UI_TEXT = {
   sectionLink: n("رابط القسم", "Section link", "Lien de la section", "Enlace de la sección", "Bereichslink"),
   copy: n("نسخ", "Copy", "Copier", "Copiar", "Kopieren"),

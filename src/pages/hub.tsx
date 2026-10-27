@@ -240,7 +240,7 @@ export default function Hub() {
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
         className="flex flex-wrap gap-2 justify-center"
       >
-        {SECTIONS.map(s => (
+        {[...SECTIONS].reverse().map(s => (
           <Link key={s.path} href={s.path}>
             <button
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all hover:scale-105"
@@ -293,7 +293,7 @@ export default function Hub() {
               <span className="text-xs font-mono px-2 py-0.5" style={{ border: "1px solid hsl(var(--primary) / 0.25)", color: "hsl(var(--primary))" }}>{s.live}</span>
             </div>
 
-            {topDomains.map((d: any, i: number) => (
+            {[...topDomains].reverse().map((d: any, i: number) => (
               <div key={d.id} className="flex items-center justify-between p-2 transition-colors group"
                 style={{ background: "hsl(var(--primary) / 0.02)", border: "1px solid hsl(var(--primary) / 0.07)" }}>
                 <div className="flex items-center gap-2">
@@ -310,7 +310,7 @@ export default function Hub() {
             {topFigures.length > 0 && (
               <div className="space-y-1.5 pt-1">
                 <p className="text-xs font-mono uppercase tracking-widest" style={{ color: "hsl(var(--primary) / 0.31)" }}>{t("hub_top_figures")}</p>
-                {topFigures.map((f: any, i: number) => (
+                {[...topFigures].reverse().map((f: any, i: number) => (
                   <div key={f.id} className="flex items-center gap-2 p-1.5"
                     style={{ background: "hsl(var(--primary) / 0.02)" }}>
                     <span className="text-xs font-black font-mono w-4" style={{ color: i === 0 ? "hsl(var(--primary))" : "#ffffff40" }}>
@@ -378,7 +378,7 @@ export default function Hub() {
               <div className="flex-1 flex items-center justify-center">
                 <Loader2 className="w-5 h-5 animate-spin" style={{ color: "hsl(var(--primary) / 0.25)" }} />
               </div>
-            ) : leaders.map((p, i) => {
+            ) : [...leaders].reverse().map((p, i) => {
                const r = getRank(p.xp, s);
               return (
                 <div key={p.id} className="flex items-center gap-2.5 p-2"
@@ -451,7 +451,7 @@ export default function Hub() {
         </AnimatePresence>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {GAMES.map((g, i) => (
+          {[...GAMES].reverse().map((g, i) => (
             <motion.div key={g.id}
               initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}>
               <div className="p-4 space-y-3 transition-all group"
@@ -617,7 +617,7 @@ export default function Hub() {
             </Link>
           </div>
           <div className="grid md:grid-cols-3 gap-4">
-            {latestNews.map((a: any, i: number) => (
+            {[...latestNews].reverse().map((a: any, i: number) => (
               <motion.div key={a.id} initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.07 }}>
                 <div className="p-4 space-y-2 h-full transition-all"

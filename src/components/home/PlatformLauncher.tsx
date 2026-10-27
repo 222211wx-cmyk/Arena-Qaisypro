@@ -3,7 +3,7 @@ import { ChevronRight, Copy, Check } from "lucide-react";
 import { useState } from "react";
 import { trackEvent } from "@/lib/analytics";
 import { useLang } from "@/contexts/LangContext";
-import { DIRECTORY, UI_TEXT, PUBLIC_ORIGIN } from "@/config/platform-directory";
+import { HOME_DIRECTORY, UI_TEXT, PUBLIC_ORIGIN } from "@/config/platform-directory";
 import { Card } from "@workspace/gdna-ds/components/ui/card";
 import { Button } from "@workspace/gdna-ds/components/ui/button";
 import { Input } from "@workspace/gdna-ds/components/ui/input";
@@ -31,7 +31,7 @@ export function PlatformLauncher() {
       <nav aria-label={UI_TEXT.directory[lang]}>
         <Card>
         <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg">
-          {DIRECTORY.map(({ id, route, icon: Icon, names }) => (
+          {HOME_DIRECTORY.map(({ id, route, icon: Icon, names }) => (
             <li key={id} className="min-w-0 sm:flex sm:items-center">
               <Link href={route} data-testid={`link-module-${id}`}
                 onClick={() => trackEvent("homepage_module_click", { module: id })}

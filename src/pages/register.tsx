@@ -24,10 +24,26 @@ export default function Register() {
   const [birthDate, setBirthDate] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [step, setStep] = useState<0 | 1 | 2>(0);
+  const confirmation = lang === "ar" ? {
+    review: "هل معلوماتك صحيحة؟", final: "تأكيد مرة ثانية - هل أنت متأكد؟",
+    yes: "نعم", no: "لا، تعديل المعلومات", hidden: "كلمة المرور مخفية لحمايتك",
+  } : lang === "fr" ? {
+    review: "Vos informations sont-elles correctes ?", final: "Deuxième confirmation — êtes-vous sûr ?",
+    yes: "Oui", no: "Non, modifier", hidden: "Mot de passe masqué pour votre sécurité",
+  } : {
+    review: "Is your information correct?", final: "Second confirmation — are you sure?",
+    yes: "Yes", no: "No, edit information", hidden: "Password hidden for your security",
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (isLoading) return;
+    if (step < 2) {
+      setStep(step === 0 ? 1 : 2);
+      return;
+    }
     setIsLoading(true);
     try {
       await register(username, password, birthDate);
@@ -71,6 +87,7 @@ export default function Register() {
                   {error}
                 </div>
               )}
+              <fieldset hidden={step !== 0} disabled={step !== 0 || isLoading} className="space-y-5">
               <div className="space-y-2">
                 <Label htmlFor="username" className="text-xs uppercase tracking-widest text-muted-foreground">{copy.playerName}</Label>
                 <div className="relative">
@@ -129,6 +146,20 @@ export default function Register() {
                   />
                 </div>
               </div>
+              </fieldset>
+              {step > 0 && (
+                <section aria-live="polite" dir={lang === "ar" ? "rtl" : "ltr"} className="space-y-3">
+                  <h2 className="font-bold">{step === 1 ? confirmation.review : confirmation.final}</h2>
+                  <dl className="space-y-2 break-words">
+                    <dt>{copy.playerName}</dt><dd>{username}</dd>
+                    <dt>{copy.birthDate}</dt><dd>{birthDate}</dd>
+                    <dt>{copy.password}</dt><dd>{confirmation.hidden}</dd>
+                  </dl>
+                  <Button type="button" variant="outline" disabled={isLoading} onClick={() => { setStep(0); setError(""); }}>
+                    {confirmation.no}
+                  </Button>
+                </section>
+              )}
                <div
                  className="flex gap-3 rounded-md border border-primary/30 bg-primary/10 p-3 text-xs leading-relaxed text-muted-foreground"
                  role="note"
@@ -145,7 +176,7 @@ export default function Register() {
                 disabled={isLoading}
                 data-testid="button-register"
               >
-                {isLoading ? copy.creating : copy.enter}
+                {isLoading ? copy.creating : step > 0 ? confirmation.yes : copy.enter}
               </Button>
               <p className="text-center text-sm text-muted-foreground">
                 {copy.already}{" "}

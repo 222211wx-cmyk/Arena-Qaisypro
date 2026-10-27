@@ -16,11 +16,11 @@ import { getEliteCarousel, isGuestOfHonor } from "@/lib/elite-profiles";
 import { GuestOfHonorCard } from "@/components/elite/GuestOfHonorCard";
 
 /**
- * Homepage Elite carousel — exactly 11 profiles in the required editorial order
- * (Adele, Guest of Honor, first). Built from DS Carousel + Card + Badge.
+ * Homepage Elite carousel — reversed presentation of the editorial profiles.
+ * Source profile order and Guest of Honor metadata remain unchanged.
  */
 export function EliteCarousel() {
-  const profiles = getEliteCarousel();
+  const profiles = [...getEliteCarousel()].reverse();
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-16" data-testid="elite-carousel">
