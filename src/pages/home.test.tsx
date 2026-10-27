@@ -1,30 +1,20 @@
-import { fireEvent, render, screen, cleanup } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
-import Home from "./home";
-afterEach(cleanup);
-describe("Arena mobile landing", () => {
-  it("renders the Arabic hero, search and six services in the requested order", () => {
-    const { container } = render(<Home />);
-    expect(container.querySelector(".arena-home")?.getAttribute("dir")).toBe("rtl");
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("الإمبراطورية الخالدة");
-    expect(screen.getByRole("link", { name: "ادخل إلى المركز" }).getAttribute("href")).toBe("/hub");
-    expect(screen.getAllByRole("article").map(card => card.getAttribute("aria-label"))).toEqual([
-      "GDN-SMART", "GDN-FIT", "GDN-CINE", "GDN-ARENA", "GDN-TO", "GDN-MUSIC",
-    ]);
-    expect(screen.getAllByRole("link", { name: /^ابدأ/ }).map(link => link.getAttribute("href"))).toEqual([
-      "/smart", "/sport", "/cinema", "/games", "/fortress", "/music",
-    ]);
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { DIRECTORY } from "@/config/platform-directory";
+
+const source = readFileSync("src/pages/home.tsx", "utf8");
+describe("restored full Arena home", () => {
+  it("keeps the full directory, citizen section, elite carousel and live previews", () => {
+    for (const component of ["PlatformLauncher", "HomeCitizenSection", "EliteCarousel", "TopLegendsPreview", "RecentActivity"]) {
+      expect(source).toContain(`<${component}`);
+    }
+    expect(DIRECTORY.some(section => section.route === "/sport")).toBe(true);
+    expect(source).toContain("#C9A84C");
   });
-  it("filters services and handles an empty result without dummy data", () => {
-    render(<Home />);
-    const search = screen.getByRole("searchbox", { name: "بحث" });
-    fireEvent.change(search, { target: { value: "MUSIC" } });
-    expect(screen.getAllByRole("article")).toHaveLength(1);
-    fireEvent.change(search, { target: { value: "السينما" } });
-    expect(screen.getByRole("article").getAttribute("aria-label")).toBe("GDN-CINE");
-    fireEvent.change(search, { target: { value: "missing" } });
-    expect(screen.getByRole("status").textContent).toBe("لا توجد نتائج");
-    fireEvent.change(search, { target: { value: "" } });
-    expect(screen.getAllByRole("article")).toHaveLength(6);
+  it("loads the actual shared styles with Tailwind, keeping gold tokens", () => {
+    const css = readFileSync("src/index.css", "utf8");
+    expect(css).toContain('@import "./lib/gdna-ds/styles.css"');
+    expect(css).toContain("--primary: 45.9 64.6% 52.4%");
+    expect(readFileSync("src/lib/gdna-ds/styles.css", "utf8")).toContain("@tailwind utilities");
   });
 });
