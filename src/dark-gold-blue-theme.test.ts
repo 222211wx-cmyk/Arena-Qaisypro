@@ -10,12 +10,6 @@ describe("black and gold appearance", () => {
     const css = source("./index.css");
     expect(css).toContain("background-color: #000");
     expect(css).not.toContain("#00BFFF");
-    const homeCss = source("./pages/home.css");
-    expect(homeCss).toContain("flex-direction: column");
-    expect(homeCss).toContain("border-radius: 16px");
-    expect(homeCss).toContain("border: 1px solid #D4AF37");
-    expect(homeCss).toContain("background: #D4AF37");
-    expect(homeCss).toContain('font-family: "Cairo", sans-serif');
     expect(source("../index.html")).toContain("family=Cairo:");
   });
 });

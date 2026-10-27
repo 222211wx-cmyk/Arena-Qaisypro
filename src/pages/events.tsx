@@ -57,8 +57,9 @@ export default function EventsPage() {
   }, [load]);
 
   const filtered = filter === "all" ? events : events.filter(e => e.domain === filter);
-  const live     = filtered.filter(e => e.isLive);
-  const upcoming = filtered.filter(e => !e.isLive).sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+  const newestFirst = (a: PulseEvent, b: PulseEvent) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime();
+  const live     = filtered.filter(e => e.isLive).sort(newestFirst);
+  const upcoming = filtered.filter(e => !e.isLive).sort(newestFirst);
 
   const liveCount = events.filter(e => e.isLive).length;
 
@@ -107,7 +108,7 @@ export default function EventsPage() {
       <div className="max-w-5xl mx-auto px-4 py-10 space-y-10">
         {/* Domain filter */}
         <div className="flex gap-2 flex-wrap">
-          {DOMAINS.map(d => {
+          {[...DOMAINS].reverse().map(d => {
             const meta = DOMAIN_META[d];
             const active = filter === d;
             return (

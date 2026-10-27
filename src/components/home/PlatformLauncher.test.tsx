@@ -29,15 +29,15 @@ describe("platform directory", () => {
     render(<PlatformLauncher />);
     fireEvent.click(screen.getByTestId("copy-module-clips"));
     await waitFor(() => expect(screen.getByRole("status").textContent).toContain("Could not copy"));
-    expect((screen.getByRole("textbox", { name: "Section link — Reels" }) as HTMLInputElement).value)
+    expect((screen.getByRole("textbox", { name: "Section link — Clips" }) as HTMLInputElement).value)
       .toBe("/clips");
   });
 
-  it("lists Calls & Messages first and Reels second", () => {
+  it("lists leaderboard first and Calls & Messages last", () => {
     render(<PlatformLauncher />);
     const links = screen.getAllByRole("link");
-    expect(links[0].getAttribute("href")).toMatch(/\/messages$/);
-    expect(links[1].getAttribute("href")).toMatch(/\/clips$/);
+    expect(links[0].getAttribute("href")).toBe("/leaderboard");
+    expect(links.at(-1)?.getAttribute("href")).toBe("/messages");
   });
 
   it("has no duplicate routes and no admin routes", () => {
