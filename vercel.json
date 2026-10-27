@@ -1,6 +1,14 @@
 {
   "rewrites": [
     {
+      "source": "/api/clips/stream",
+      "destination": "/api/clips/stream"
+    },
+    {
+      "source": "/api/clips/:id",
+      "destination": "/api/clip?id=:id"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
