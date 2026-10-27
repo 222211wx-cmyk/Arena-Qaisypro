@@ -376,7 +376,6 @@ export function mountReels(root: HTMLElement, options: MountReelsOptions): Reels
       const v = el("video") as HTMLVideoElement;
       v.playsInline = true;
       v.controls = true;
-      v.autoplay = false;
       v.muted = false;
       Object.assign(v.style, {
         width: "100%", height: "100%", objectFit: "cover", cursor: "pointer",

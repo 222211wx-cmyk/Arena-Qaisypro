@@ -5,6 +5,8 @@ import { createLightweightCallBoundary } from "./lib/lightweight-call-boundary";
 import { announceAccountChange, fetchSharedClipSession, subscribeAccountChanges, subscribeSessionWake } from "./lib/account-session-events";
 import {
   uploadClip,
+  MAX_CLIP_BYTES,
+  FILE_TOO_LARGE_MESSAGE,
   type ClipUploadMetadata,
 } from "./components/clips/clipUpload";
 import { readClipDuration } from "./components/clips/readClipDuration";
@@ -215,6 +217,7 @@ input.addEventListener("change", async () => {
   selectedFileKey = nextFileKey;
   displayNameRow.hidden = false;
   cachedFile = selected;
+  selectedDuration = null;
   displayName.disabled = false;
   chooseFile.textContent = selected.name;
   selection.textContent = "✓ Fichier sélectionné";
@@ -334,9 +337,11 @@ form.addEventListener("submit", async event => {
   progress.value = 0;
   status.textContent = `0% — 0 من ${formatBytes(file.size)} — جارٍ التحقق من المدة…`;
   try {
+    if (file.size > MAX_CLIP_BYTES) throw new Error(FILE_TOO_LARGE_MESSAGE);
     const duration = selectedDuration ?? await awaitPendingDurationProbe(operation.signal);
     operation.signal.throwIfAborted();
     if (cachedFile !== file) return;
+    if (duration !== null && duration < 60) throw new Error("خاص دقيقة الفوق");
     const metadata: ClipUploadMetadata = { title, durationSec: duration };
     const published = await uploadClip(file, metadata, operation.signal, reportUploadProgress, { expectedOwner: owner });
     if (uploadOwner !== owner) return;

@@ -208,7 +208,7 @@ export function renderClipPlayer(code: string) {
         </div>
       </header>
       <main dir="rtl">
-       <a class="direct-close" href="${BASE}clips" aria-label="Retour">Retour</a>
+       <a class="direct-close" href="${BASE}clips?view=grid" aria-label="Fermer le lecteur et afficher la grille">Retour</a>
       <section>
         <p id="player-code" dir="ltr">${code}</p>
         <h1 id="player-name">جارٍ تحميل الكليب…</h1>
