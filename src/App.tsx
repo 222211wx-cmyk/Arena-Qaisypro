@@ -260,6 +260,7 @@ function PageWrapper() {
 function Router() {
   const [location] = useLocation();
   const search = useSearch();
+  const isHome = location === "/";
   const isChoiceEntry = location === "/login";
   const isMessagesEntry = isMessagesEntryPath(location) ||
     ((location === "/login" || location === "/register") && messagesReturnPath(search) !== null);
@@ -267,8 +268,8 @@ function Router() {
     <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/30 selection:text-white">
       <ArenaDocumentTitle />
       <div className="sticky top-0 z-50">
-      <BackButton />
-      {!isChoiceEntry && !isMessagesEntry && <Navbar />}
+      {!isHome && <BackButton />}
+      {!isHome && !isChoiceEntry && !isMessagesEntry && <Navbar />}
       {isMessagesEntry && (
         <header className="border-b border-border bg-background">
           <div className="mx-auto flex max-w-6xl justify-end px-3 py-2">
@@ -278,7 +279,7 @@ function Router() {
       )}
       </div>
       <PageWrapper />
-      {!isChoiceEntry && !isMessagesEntry && <Footer />}
+      {!isHome && !isChoiceEntry && !isMessagesEntry && <Footer />}
       <CookieBanner />
       <AgeGate />
       <GeoBlock />
