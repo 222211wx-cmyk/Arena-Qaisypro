@@ -192,6 +192,37 @@ describe("Reels poster and actions lifecycle", () => {
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   });
 
+  it("opens Clip 13 from search with its existing media URL and never searches again on click", async () => {
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
+    const clip = feedClip(13);
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (url.includes("/auth/me")) return Response.json({}, { status: 401 });
+      if (url.includes("/clips/feed")) {
+        return Response.json({ clips: url.includes("q=") ? [clip] : [], hasMore: false });
+      }
+      return Response.json({ engagement: {} });
+    }));
+    controller = mountReels(document.getElementById("root")!, { onOpenComposer: vi.fn() });
+    await vi.waitFor(() => expect(document.querySelector('[data-testid="reels-state-empty"]')).not.toBeNull());
+    document.querySelector<HTMLButtonElement>('.reels-topbar [aria-label="Rechercher"]')!.click();
+    const input = document.querySelector<HTMLInputElement>('.reels-search-input')!;
+    input.value = "Clip 13";
+    input.dispatchEvent(new Event("input"));
+    await vi.waitFor(() => expect(document.querySelector('.reels-search [aria-label="Clip 13"]')).not.toBeNull());
+    const searchesBefore = vi.mocked(fetch).mock.calls.filter(([url]) => String(url).includes("/clips/feed")).length;
+    document.querySelector<HTMLButtonElement>('.reels-search [aria-label="Clip 13"]')!.click();
+    const video = document.querySelector<HTMLVideoElement>('[data-clip-id="13"] video');
+    expect(video).not.toBeNull();
+    expect(video!.querySelector("source")?.src).toBe(clip.video_url);
+    expect(video!.controls).toBe(true);
+    expect(video!.playsInline).toBe(true);
+    expect(video!.play).toHaveBeenCalled();
+    await Promise.resolve();
+    expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).includes("/clips/feed"))).toHaveLength(searchesBefore);
+    expect(document.querySelector('.reels-search')).toBeNull();
+    expect(document.body.textContent).not.toContain("Recherche indisponible");
+  });
+
   const feed = (engagement?: () => Promise<Response>) => {
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       if (url.includes("/api/auth/me")) return Response.json({}, { status: 401 });
