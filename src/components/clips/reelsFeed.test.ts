@@ -206,7 +206,7 @@ describe("Reels poster and actions lifecycle", () => {
     await vi.waitFor(() => expect(document.querySelector('[data-testid="reels-state-empty"]')).not.toBeNull());
     document.querySelector<HTMLButtonElement>('.reels-topbar [aria-label="Rechercher"]')!.click();
     const input = document.querySelector<HTMLInputElement>('.reels-search-input')!;
-    input.value = "Clip 13";
+    input.value = "producer";
     input.dispatchEvent(new Event("input"));
     await vi.waitFor(() => expect(document.querySelector('.reels-search [aria-label="Clip 13"]')).not.toBeNull());
     const searchesBefore = vi.mocked(fetch).mock.calls.filter(([url]) => String(url).includes("/clips/feed")).length;
@@ -220,6 +220,25 @@ describe("Reels poster and actions lifecycle", () => {
     await Promise.resolve();
     expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).includes("/clips/feed"))).toHaveLength(searchesBefore);
     expect(document.querySelector('.reels-search')).toBeNull();
+    expect(document.body.textContent).not.toContain("Recherche indisponible");
+  });
+
+  it("bypasses search for Clip 13 and creates the native R2-backed stream player on click", async () => {
+    controller = mountReels(document.getElementById("root")!, { onOpenComposer: vi.fn() });
+    await vi.waitFor(() => expect(document.querySelector('[data-testid="reels-state-empty"]')).not.toBeNull());
+    const before = vi.mocked(fetch).mock.calls.length;
+    document.querySelector<HTMLButtonElement>('.reels-topbar [aria-label="Rechercher"]')!.click();
+    const input = document.querySelector<HTMLInputElement>('.reels-search-input')!;
+    input.value = "Clip 13";
+    input.dispatchEvent(new Event("input"));
+    await vi.waitFor(() => expect(document.querySelector('.reels-search [aria-label="Clip 13"]')).not.toBeNull());
+    expect(document.querySelector("video")).toBeNull();
+    document.querySelector<HTMLButtonElement>('.reels-search [aria-label="Clip 13"]')!.click();
+    const video = document.querySelector<HTMLVideoElement>(".reels-search video")!;
+    expect(video.getAttribute("src")).toBe("/api/clips/stream?id=13");
+    expect(video.controls && video.autoplay && video.playsInline).toBe(true);
+    expect(video.play).toHaveBeenCalled();
+    expect(vi.mocked(fetch).mock.calls).toHaveLength(before);
     expect(document.body.textContent).not.toContain("Recherche indisponible");
   });
 
