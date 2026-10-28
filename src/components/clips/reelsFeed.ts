@@ -969,7 +969,13 @@ export function mountReels(root: HTMLElement, options: MountReelsOptions): Reels
   function openFromGrid(clipId: number) {
     gridScrollTop = gridView?.scrollTop ?? gridScrollTop;
     const clip = gridClips.find(item => item.id === clipId);
-    if (clip && !slides.some(slide => slide.id === clipId)) {
+    if (clip) openClip(clip);
+  }
+
+  // A selected card already has its playback URL. Never re-run a search to play it.
+  function openClip(clip: FeedClip) {
+    const clipId = clip.id;
+    if (!slides.some(slide => slide.id === clipId)) {
       const selected = createSlide(clip);
       slides.push(selected);
       track.append(selected.element);
@@ -980,6 +986,7 @@ export function mountReels(root: HTMLElement, options: MountReelsOptions): Reels
     if (handle) {
       handle.element.scrollIntoView({ behavior: "auto", block: "start" });
       handle.activate();
+      if (handle.video?.paused) handle.togglePlaybackByUser();
       activeSlideId = clipId;
     }
   }
@@ -1040,9 +1047,8 @@ export function mountReels(root: HTMLElement, options: MountReelsOptions): Reels
           meta.append(resultTitle, resultAuthor);
           cell.append(meta);
           cell.addEventListener("click", () => {
-            searchQuery = q;
             closeSearch();
-            void loadPage(true);
+            openClip(clip);
           });
           results.append(cell);
         }
