@@ -79,8 +79,6 @@ import CinemaPage   from "@/pages/cinema";
 import AdminRevenuePage from "@/pages/admin-revenue";
 import FinanceOnboarding from "@/pages/finance-onboarding";
 import AdminFinance from "@/pages/admin-finance";
-import AdminClipThumbnailsPage from "@/pages/admin-clip-thumbnails";
-import RoyalVerificationPage from "@/pages/royal-verification";
 // Partner-specific pages are not implemented in the full React router.
 import RecoveryCodePage from "@/pages/recovery-code";
 import RecoverWithCode from "@/pages/recover-with-code";
@@ -247,10 +245,8 @@ function PageWrapper() {
           <Route path="/chat" component={ChatPage} />
           <Route path="/wallet" component={Wallet} />
           <Route path="/finance/onboarding" component={FinanceOnboarding} />
-          <Route path="/royal-verification" component={RoyalVerificationPage} />
           <Route path="/admin/revenue" component={AdminRevenuePage} />
           <Route path="/admin/finance" component={AdminFinance} />
-          <Route path="/admin/clips/thumbnails" component={AdminClipThumbnailsPage} />
           <Route component={NotFound} />
         </Switch>
       </ErrorBoundary>
