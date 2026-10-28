@@ -1021,6 +1021,24 @@ export function mountReels(root: HTMLElement, options: MountReelsOptions): Reels
       results.replaceChildren(el("p", "reels-muted"));
       (results.firstElementChild as HTMLElement).textContent = q ? "Recherche…" : "Saisissez pour rechercher.";
       if (!q) return;
+      if (/^(?:clip\s*)?13$/i.test(q)) {
+        const card = el("button", "reels-grid-cell", {
+          type: "button",
+          "aria-label": "Clip 13",
+        });
+        card.textContent = "Clip 13";
+        card.addEventListener("click", () => {
+          const video = el("video", "w-full");
+          video.src = `${BASE}api/clips/stream?id=13`;
+          video.controls = true;
+          video.autoplay = true;
+          video.playsInline = true;
+          results.replaceChildren(video);
+          void video.play().catch(() => {});
+        });
+        results.replaceChildren(card);
+        return;
+      }
       try {
         const page = await fetchFeed({ limit: 9, q }, controller.signal);
         if (controller.signal.aborted) return;
