@@ -1,34 +1,30 @@
 # Clip upload lifecycle
 
-The isolated Clips entry sends the original File directly to an HTTPS presigned
-storage URL using XHR PUT. API calls carry JSON metadata only, not media bytes.
-The client accepts files up to 5 GiB and rejects known durations below 60 seconds.
-An unreadable duration must be verified by the backend. File selection and title
-are retained on failure; cancellation never proceeds to confirmation.
+The isolated Clips entry uploads original bytes directly to presigned R2 URLs in
+5 MiB parts, through the inclusive limit of 10 GiB (10,737,418,240 bytes).
+It does not load a browser encoder. Browser duration inspection is only a hint.
 
-Required authenticated backend contract:
-- `GET /api/auth/me`: verified numeric account id and username (401 for guests).
-- `POST /api/clips/presign`: filename, title, contentType, size, durationSec,
-  expectedOwnerId → `{ url, key }`.
-- Storage PUT must allow `Content-Type` and `If-None-Match: *` through CORS.
-- `POST /api/clips/confirm`: key, expectedOwnerId → confirmed clip and HELX code.
+`POST /api/upload/presign` supplies the existing initiate/inspect/part/abort
+protocol. Multipart completion uses `POST /api/upload/complete`. Its 202 response
+is an acceptance, not a publication receipt. At that point the original IndexedDB
+Blob is deleted atomically with storing account-scoped processing metadata.
+`GET /api/upload/status/:sessionId` is read with session credentials; only a
+verified ready receipt publishes a link or refreshes the feed.
 
-The backend must enforce session ownership, size and duration, verify the stored
-object, and persist the publication before issuing the confirmation receipt.
-Client validation is not authorization or trusted media verification.
+The open client checks processing jobs every five seconds and on return. Each
+check is bounded; the canonical service worker transfers stored files but does
+not wait for server encoding or loop on processing jobs during Background Sync.
+Failed jobs retain their explicit error and local cleanup action. Retrying a
+failed encoding requires selecting the source again. Removing local tracking does
+not cancel server processing or delete published media.
 
-## Release blockers
+Original-byte persistence and Web Locks retain pause/resume/account fencing.
+Local quotas may be far below 10 GiB. If the Blob cannot be stored, the UI says
+foreground-only and no reopen recovery; browser background execution is always
+best effort, especially on mobile. No beforeunload blocker is installed.
 
-This repository contains metadata and streaming Functions only. There is no
-`app/api` directory to move and no implementation of auth/login, auth/me,
-clips/presign or clips/confirm. The five supplied files were already present
-byte-for-byte on feat/neon-r2-clips. An API self-rewrite prevents the SPA fallback
-but cannot create the missing handlers. Supply the original backend source or
-connect the supported authenticated backend before claiming login/upload works.
-
-`public/sw.js` and its original push/call implementation are also absent; the
-bootstrap service-worker configuration test is not satisfied by this checkout.
-Do not replace it with a placeholder worker and claim push/calls were preserved.
-
-Tests mock storage and authentication. A synthetic 171 MiB File-size regression
-checks the transport path, not an actual network upload or storage configuration.
+Build audit: the clip bootstrap preload branch includes clip-entry and the shared
+reels icons chunk, not app-entry or its stylesheet. Citizen/messenger overlays are
+dynamic imports activated explicitly. Production cold-request verification should
+also inspect actual browser requests, since older deployed assets can differ from
+the workspace build.
