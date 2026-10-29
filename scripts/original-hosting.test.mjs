@@ -23,6 +23,9 @@ test('original archive is unchanged and protection removes destructive startup',
   assert.ok(!runtime.includes('spawn2("ffprobe", ['));
   assert.ok(runtime.includes('LOWER(${usersTable.email}) = LOWER(${username}) OR LOWER(${usersTable.username}) = LOWER(${username})'));
   assert.ok(runtime.includes('req.body?.email'));
+  assert.ok(runtime.includes('req.body?.ownerId !== void 0 && req.body.ownerId !== req.session.userId'));
+  assert.ok(runtime.includes('const bucket = process.env.R2_BUCKET?.trim();'));
+  assert.ok(!runtime.includes('(process.env.R2_BUCKET_NAME || process.env.R2_BUCKET)?.trim()'));
   assert.ok(runtime.includes('const existing = await db.select().from(usersTable).where(sql`LOWER(${usersTable.username}) = LOWER(${username})`).limit(1)'));
 });
 
@@ -56,7 +59,7 @@ test('production cold start and public HTTP route perform no DB queries or exter
         if (!String(result.source).includes('pool = new Pool3({ connectionString, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5e3 });')) throw new Error('SQL probe anchor missing');
         const source = String(result.source).replace('pool = new Pool3({ connectionString, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5e3 });',
           'pool = new Pool3({ connectionString, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5e3 }); pool.query = (sql) => { if(globalThis.__allowAmeeq) return globalThis.__ameeqQuery(sql); globalThis.__queries++; throw new Error("Unexpected SQL"); }; pool.connect = async () => { if(globalThis.__allowAmeeq) return {query:globalThis.__ameeqQuery,release(){}}; globalThis.__queries++; throw new Error("Unexpected DB connect"); };');
-        return { ...result, source: source + '; globalThis.__clipPlayback = signClipPlayback; globalThis.__verifiedDuration = verifiedDuration;' };
+        return { ...result, source: source + '; globalThis.__clipPlayback = signClipPlayback; globalThis.__verifiedDuration = verifiedDuration; globalThis.__clipDurationSeconds = clipDurationSeconds; globalThis.__clipUploadFence = router55.stack[0].handle;' };
       }
       return result;
     }});
@@ -77,6 +80,26 @@ test('production cold start and public HTTP route perform no DB queries or exter
     const { default: server } = await import('./api/original.js');
     const playback = await globalThis.__clipPlayback('r2:clips/original/7/probe.mp4');
     if (playback.url !== 'https://media.example.test/clips/original/7/probe.mp4' || playback.urlExpiresAt !== null) throw new Error('Public R2 playback not wired');
+    for (const [session, body, status] of [
+      [undefined, { ownerId: 7 }, 401],
+      [{ userId: 7 }, { ownerId: 8 }, 403],
+      [{ userId: 7 }, { ownerId: 7, expectedOwnerId: 8 }, 403],
+    ]) {
+      let actualStatus;
+      const response = { status(code) { actualStatus = code; return this; }, json() {} };
+      globalThis.__clipUploadFence({ session, body }, response, () => { throw new Error('Owner fence bypassed'); });
+      if (actualStatus !== status) throw new Error('Confirmation owner fence failed');
+    }
+    let ownerAllowed = false;
+    globalThis.__clipUploadFence({ session: { userId: 7 }, body: { ownerId: 7 } }, { set() {} }, () => { ownerAllowed = true; });
+    if (!ownerAllowed) throw new Error('Authenticated citizen blocked');
+    // Real server publication policy: inclusive minute minimum, no duration ceiling.
+    for (const seconds of [60, 61, 26 * 3600, 365 * 24 * 3600]) {
+      if (globalThis.__clipDurationSeconds(seconds, 'video/mp4') !== seconds) throw new Error('Unexpected duration ceiling');
+    }
+    let rejectedShort = false;
+    try { globalThis.__clipDurationSeconds(59.99, 'video/mp4'); } catch { rejectedShort = true; }
+    if (!rejectedShort) throw new Error('Minimum duration was bypassed');
     // A real 61-second PCM container proves the packaged verifier can execute
     // and seek through the production range bridge without any system ffprobe.
     const dataBytes = 61 * 8000 * 2;

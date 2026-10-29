@@ -6,7 +6,7 @@ afterEach(() => vi.unstubAllGlobals());
 type Sent = { url: string; method: string; body: unknown; headers: Record<string, string> };
 
 function setup({ me = 7, putStatus = 200, hold = false, confirm = { ok: true, clip: { id: 9, code: "HELX-123456", title: "Mon clip" } } } = {}) {
-  const fetches: Array<{ url: string; body: Record<string, unknown> | null }> = [];
+  const fetches: Array<{ url: string; body: Record<string, unknown> | null; init?: RequestInit }> = [];
   const puts: Sent[] = [];
   let xhr: MockXHR | null = null;
   class MockXHR {
@@ -32,7 +32,7 @@ function setup({ me = 7, putStatus = 200, hold = false, confirm = { ok: true, cl
   vi.stubGlobal("XMLHttpRequest", MockXHR);
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     const body = init?.body ? JSON.parse(String(init.body)) : null;
-    fetches.push({ url, body });
+    fetches.push({ url, body, init });
     const json = (data: unknown) => new Response(JSON.stringify(data), { status: 200, headers: { "Content-Type": "application/json" } });
     if (url.endsWith("api/auth/me")) return json({ id: me, username: "citizen" });
     if (url.endsWith("api/clips/presign")) return json({ url: "https://signed.example/put", key: "clips/abc" });
@@ -51,14 +51,17 @@ describe("direct clip transport", () => {
     const progress = vi.fn();
     const result = await uploadClip(original, { title: "Mon clip", durationSec: 61 }, new AbortController().signal, progress, { expectedOwner: 7 });
     expect(fetches.find(f => f.url.endsWith("presign"))!.body).toEqual({
-      filename: "voice.mp4", title: "Mon clip", contentType: "video/mp4", size: 10, durationSec: 61, expectedOwnerId: 7,
+      filename: "voice.mp4", title: "Mon clip", contentType: "video/mp4", size: 10, durationSec: 61, ownerId: 7,
     });
+    for (const call of fetches.filter(f => f.url.endsWith("presign") || f.url.endsWith("confirm"))) {
+      expect(call.init).toMatchObject({ method: "POST", credentials: "include", headers: { "Content-Type": "application/json" } });
+    }
     expect(puts).toHaveLength(1);
     expect(puts[0]).toMatchObject({ url: "https://signed.example/put", method: "PUT" });
     expect(puts[0].body).toBe(original);
     expect(puts[0].headers).toEqual({ "Content-Type": "video/mp4", "If-None-Match": "*" });
     expect(progress).toHaveBeenCalledWith(50, 5, 10);
-    expect(fetches.find(f => f.url.endsWith("confirm"))!.body).toEqual({ key: "clips/abc", expectedOwnerId: 7 });
+    expect(fetches.find(f => f.url.endsWith("confirm"))!.body).toEqual({ key: "clips/abc", ownerId: 7 });
     expect(result).toMatchObject({ code: "HELX-123456", name: "Mon clip" });
   });
 
@@ -66,7 +69,7 @@ describe("direct clip transport", () => {
     const { puts, fetches } = setup();
     const original = file();
     Object.defineProperty(original, "size", { value: 171 * 1024 ** 2 });
-    await uploadClip(original, { title: "Large clip", durationSec: 61 }, new AbortController().signal, () => {}, { expectedOwner: 7 });
+    await uploadClip(original, { title: "Large clip", durationSec: 30 * 3600 }, new AbortController().signal, () => {}, { expectedOwner: 7 });
     expect(puts).toHaveLength(1);
     expect(puts[0].body).toBe(original);
     expect(puts[0].url).toBe("https://signed.example/put");

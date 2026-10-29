@@ -8,9 +8,13 @@ export const MAX_DIRECT_CLIP_BYTES = 5 * 1024 ** 3;
 /** Only call after the public clip lookup has excluded frozen/missing records. */
 export function publicClipUrl(reference, env = process.env) {
   if (typeof reference !== 'string' || !reference.startsWith('r2:')) return null;
+  return getPublicUrl(reference.slice(3), env);
+}
+
+/** Public clip keys only; never use the private API endpoint for display. */
+export function getPublicUrl(key, env = process.env) {
   const raw = env.R2_PUBLIC_URL?.trim();
   if (!raw) return null; // Private buckets retain the existing signed/proxied path.
-  const key = reference.slice(3);
   if (!/^clips\/(original|derived)\/[A-Za-z0-9][A-Za-z0-9/._-]*$/.test(key) || key.includes('..')) {
     throw new Error('Invalid R2 clip reference');
   }
@@ -45,20 +49,23 @@ export function createClipPresign({ pool, r2Config, resolveClipUploadType,
     res.set('Cache-Control', 'no-store');
     const userId = req.session?.userId;
     if (!Number.isSafeInteger(userId) || userId <= 0) return res.status(401).json({ error: 'يجب تسجيل الدخول' });
-    if (req.body?.expectedOwnerId !== undefined && req.body.expectedOwnerId !== userId) {
+    if ((req.body?.ownerId !== undefined && req.body.ownerId !== userId) ||
+        (req.body?.expectedOwnerId !== undefined && req.body.expectedOwnerId !== userId)) {
       return res.status(403).json({ error: 'تغير الحساب؛ اختر الملف مجدداً' });
     }
     try {
       const config = r2Config();
-      if (!config) return res.status(503).json({ error: 'R2 storage is not configured' });
+      if (!config || config.bucket !== 'gdna-arena') return res.status(503).json({ error: 'R2 storage is not configured' });
       const body = req.body ?? {};
-      const filename = typeof body.filename === 'string' ? body.filename.trim() : '';
+      const rawName = body.filename ?? body.fileName;
+      const filename = typeof rawName === 'string' ? rawName.trim() : '';
       const title = validateClipDisplayTitle(body.title);
       const size = body.size;
       const rawType = typeof body.contentType === 'string' ? body.contentType : '';
       const contentType = resolveClipUploadType(rawType, filename);
-      const duration = body.durationSec === null ? 0 : body.durationSec;
-      if (!filename || filename.length > 1024 || !contentType ||
+      const duration = body.durationSec == null ? 0 : body.durationSec;
+      if ((body.ownerId === undefined && body.expectedOwnerId === undefined) ||
+          !title || !filename || filename.length > 1024 || !contentType ||
           !Number.isSafeInteger(size) || size <= 0 || size > MAX_DIRECT_CLIP_BYTES ||
           typeof duration !== 'number' || !Number.isFinite(duration) || duration < 0) {
         return res.status(400).json({ error: 'Invalid clip upload metadata' });
@@ -79,7 +86,7 @@ export function createClipPresign({ pool, r2Config, resolveClipUploadType,
         new Date(Date.now() + 3600_000)]);
       // Acceptance is not publication. Existing /clips/confirm verifies storage,
       // probes media and commits the clip + upload receipt transactionally.
-      return res.status(201).json({ url, key });
+      return res.status(201).json({ url, uploadUrl: url, key });
     } catch (error) {
       logger.error({ err: error }, 'Direct clip presign failed');
       return res.status(error instanceof ClipUploadError ? error.status : 503)

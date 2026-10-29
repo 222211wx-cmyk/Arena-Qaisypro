@@ -26,12 +26,14 @@ function replaceBlock(start, end, replacement) {
 runtime = "import { createClipPresign, publicClipUrl } from './server/clip-r2.mjs';\n" + runtime;
 replaceOnce('router55.post("/clips/confirm", async (req, res) => {',
   'router55.post("/clips/presign", createClipPresign({ pool, r2Config, resolveClipUploadType, clipDownloadExtension, validateClipDisplayTitle, ClipUploadError, logger }));\nrouter55.post("/clips/confirm", async (req, res) => {');
+replaceOnce('if (req.body?.expectedOwnerId !== void 0 && req.body.expectedOwnerId !== req.session.userId) {',
+  'if ((req.body?.ownerId !== void 0 && req.body.ownerId !== req.session.userId) || (req.body?.expectedOwnerId !== void 0 && req.body.expectedOwnerId !== req.session.userId)) {');
 // Publication must probe the actual media, even on hosts without system ffprobe.
 runtime = "import clipFfprobe from '@ffprobe-installer/ffprobe';\n" + runtime;
 replaceOnce('spawn2("ffprobe", [', 'spawn2(clipFfprobe.path, [');
-// Canonical bucket wins; retain compatibility for older hosting environments.
+// Only the canonical bucket variable selects storage; never fall back to a stale name.
 replaceOnce('(process.env.R2_BUCKET_NAME || process.env.R2_BUCKET)?.trim()',
-  '(process.env.R2_BUCKET || process.env.R2_BUCKET_NAME)?.trim()');
+  'process.env.R2_BUCKET?.trim()');
 // Public media only: do not change the shared R2 signer used by private storage.
 replaceOnce('async function signClipPlayback(filename, request = fetch) {',
   'async function signClipPlayback(filename, request = fetch) {\n  const publicUrl = publicClipUrl(filename);\n  if (publicUrl) return { url: publicUrl, urlExpiresAt: null };');

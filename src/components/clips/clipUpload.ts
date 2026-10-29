@@ -98,7 +98,7 @@ export async function uploadClip(
   const contentType = file.type || "application/octet-stream";
   const session = await postJson(`${import.meta.env.BASE_URL}api/clips/presign`, {
     filename: file.name, title: metadata.title, contentType, size: file.size,
-    durationSec: metadata.durationSec, expectedOwnerId: owner,
+    durationSec: metadata.durationSec, ownerId: owner,
   }, signal);
   if (typeof session?.url !== "string" || typeof session?.key !== "string") {
     throw new Error("تعذر بدء الرفع — حاول مجدداً");
@@ -109,7 +109,7 @@ export async function uploadClip(
   await putOriginal(session.url, file, signal, onProgress);
   signal.throwIfAborted();
   const body = await postJson(`${import.meta.env.BASE_URL}api/clips/confirm`, {
-    key: session.key, expectedOwnerId: owner,
+    key: session.key, ownerId: owner,
   }, signal);
   signal.throwIfAborted();
   const clip = body?.clip && typeof body.clip === "object" ? body.clip : null;
