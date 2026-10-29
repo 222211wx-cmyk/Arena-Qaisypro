@@ -84,16 +84,20 @@ test('production cold start and public HTTP route perform no DB queries or exter
     // a read-only fake DB. This is not a claim about production record counts.
     globalThis.__allowAmeeq = true;
     globalThis.__ameeqQuery = async (sql) => {
-      if (!/^(BEGIN TRANSACTION.*READ ONLY|SET LOCAL|SELECT|COMMIT|ROLLBACK)/.test(sql)) throw new Error('Unsafe Ameeq SQL');
-      return { rows: sql.startsWith('SELECT (SELECT') ? [{ citizens: 41, clips: 13 }] : [] };
+      const text = typeof sql === 'string' ? sql : sql.text;
+      if (!/^(BEGIN TRANSACTION.*READ ONLY|SET LOCAL|SELECT|COMMIT|ROLLBACK)/.test(text)) throw new Error('Unsafe Ameeq SQL');
+      return { rows: text.startsWith('SELECT (SELECT') ? [{ citizens: 41, clips: 13 }] : [] };
     };
-    const greeting = await new Promise((resolve, reject) => {
-      const body = JSON.stringify({command:'hi'});
-      const request = http.request({ host:'127.0.0.1', port:server.address().port, path:'/api/ameeq', method:'POST', headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(body)} }, res => {
-        let text=''; res.on('data', chunk=>text+=chunk); res.on('end',()=>resolve({status:res.statusCode,text}));
-      });request.on('error',reject);request.end(body);
-    });
-    if (greeting.status !== 200 || !JSON.parse(greeting.text).response.includes('41 citizens and 13 available clips')) throw new Error('Original Ameeq route failed: '+JSON.stringify(greeting));
+    for (const field of ['command','message','question']) {
+      const answer = await new Promise((resolve, reject) => {
+        const body = JSON.stringify({[field]:'شكون نتا'});
+        const request = http.request({ host:'127.0.0.1', port:server.address().port, path:'/api/ameeq', method:'POST', headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(body)} }, res => {
+          let text=''; res.on('data', chunk=>text+=chunk); res.on('end',()=>resolve({status:res.statusCode,text}));
+        });request.on('error',reject);request.end(body);
+      });
+      const payload = JSON.parse(answer.text);
+      if (answer.status !== 200 || !payload.response.includes('EMP-001') || !payload.response.includes('41 مواطن و 13 كليب') || payload.response.includes('غير متاح')) throw new Error('Original Ameeq route failed: '+JSON.stringify(answer));
+    }
     await new Promise(r => server.close(r));
     console.log('COLD_START_SAFE');
     process.exit(0);
