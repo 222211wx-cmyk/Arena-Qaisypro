@@ -1,3 +1,4 @@
+import { citizenReturnPath } from '@/lib/recovery-links';
 import { useState } from "react";
 import { useLocation, useSearch, Link, Redirect } from "wouter";
 import { motion } from "framer-motion";
@@ -18,7 +19,7 @@ export default function Register() {
   const { register, user } = useAuth();
   const { lang } = useLang();
   const copy = coreCopy(lang);
-  const destination = messagesReturnPath(search) ?? recoveryEnrollmentReturnPath(search);
+  const destination = citizenReturnPath(search) ?? messagesReturnPath(search) ?? recoveryEnrollmentReturnPath(search);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [birthDate, setBirthDate] = useState("");

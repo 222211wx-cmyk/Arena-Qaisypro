@@ -49,3 +49,6 @@ if (clipCode) {
     showStartupError("تعذر تحميل الصفحة. تحقق من الاتصال واضغط إعادة المحاولة. لن تُحذف رسائلك أو مفاتيح التشفير.", "app");
   });
 }
+
+// One shared local translation control for React and standalone clip surfaces.
+void import('./lib/clone-translation').then(({mountCloneTranslation})=>mountCloneTranslation());

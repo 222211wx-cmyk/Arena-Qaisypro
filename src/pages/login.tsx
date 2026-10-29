@@ -1,3 +1,4 @@
+import { citizenReturnPath } from '@/lib/recovery-links';
 import { useState } from "react";
 import { useLocation, useSearch, Link, Redirect } from "wouter";
 import { motion } from "framer-motion";
@@ -75,7 +76,7 @@ export default function Login({ messagesEntry = false, returnTo }: { messagesEnt
   const copy = coreCopy(lang);
   const dir = lang === "ar" ? "rtl" : "ltr";
 
-  const destination = returnTo ?? messagesReturnPath(search) ?? recoveryEnrollmentReturnPath(search);
+  const destination = returnTo ?? citizenReturnPath(search) ?? messagesReturnPath(search) ?? recoveryEnrollmentReturnPath(search);
   const messengerLogin = messagesEntry || messagesReturnPath(search) !== null;
   const [mode, setMode] = useState<"choice" | "auth">(messengerLogin || destination !== null ? "auth" : "choice");
   const [username, setUsername] = useState("");
@@ -163,6 +164,7 @@ export default function Login({ messagesEntry = false, returnTo }: { messagesEnt
                   <ArrowLeft className="w-3 h-3" />
                   {copy.back}
                 </button>}
+                <a href={`${import.meta.env.BASE_URL}forgot-password`} className="block text-primary mb-3">نسيت كلمة السر / Forgot password</a>
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {error && (
                     <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-sm">
@@ -172,7 +174,7 @@ export default function Login({ messagesEntry = false, returnTo }: { messagesEnt
                   )}
                   <div className="space-y-2">
                     <Label htmlFor="username" className="text-xs uppercase tracking-widest text-muted-foreground">
-                      {copy.playerName}
+                      {({ar:"البريد الإلكتروني أو اسم اللاعب",fr:"E-mail ou nom du joueur",en:"Email or player name",es:"Correo o nombre de jugador",de:"E-Mail oder Spielername"})[lang]}
                     </Label>
                     <div className="relative">
                       <User className="absolute left-3 top-3 h-5 w-5 text-primary/50" />

@@ -27,3 +27,10 @@ export function recoveryEnrollmentReturnPath(search: string): string | null {
 export function recoveryWebHref(route: "/recover-account" | "/recovery-phone" | "/recovery-code" | "/recover-with-code", next: string, lang: string): string {
   return `${import.meta.env.BASE_URL.replace(/\/$/, "")}${recoveryRoute(route, next, lang)}`;
 }
+
+/** Same-origin account round-trip, never an arbitrary next URL. */
+export function citizenReturnPath(search:string):string|null {
+ const value=new URLSearchParams(search).get('next');
+ if(!value || /[\\\u0000-\u001f]/.test(value))return null;
+ return /^\/(?:clips|competitions|games|social|market|learn|genome|ameeq|hub|dashboard)(?:[?#]|$)/.test(value)?value:null;
+}
