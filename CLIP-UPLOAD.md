@@ -25,7 +25,10 @@ without editing the archive or adding a Next.js route that would not be served.
    relying on a system `ffprobe`. The minimum is inclusive at 60 seconds, with no application duration ceiling.
    This does not remove the 5 GiB single-PUT size limit, one-hour upload receipt
    expiry, bounded media-probe work, or browser/network/storage constraints.
-   Repeated confirmation returns the existing publication receipt.
+   Successful confirmation returns the public `url` alongside `ok: true` and the
+   persisted clip metadata; repeated confirmation returns the same publication.
+   The browser accepts a display URL only from this successful receipt, never
+   from the earlier presign response.
 5. Only a successful confirmation refreshes the public feed. Presign acceptance
    alone never reports that a clip was published. No automatic data import, seed,
    migration, thumbnail generation or account creation is introduced.

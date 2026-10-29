@@ -28,6 +28,20 @@ replaceOnce('router55.post("/clips/confirm", async (req, res) => {',
   'router55.post("/clips/presign", createClipPresign({ pool, r2Config, resolveClipUploadType, clipDownloadExtension, validateClipDisplayTitle, ClipUploadError, logger }));\nrouter55.post("/clips/confirm", async (req, res) => {');
 replaceOnce('if (req.body?.expectedOwnerId !== void 0 && req.body.expectedOwnerId !== req.session.userId) {',
   'if ((req.body?.ownerId !== void 0 && req.body.ownerId !== req.session.userId) || (req.body?.expectedOwnerId !== void 0 && req.body.expectedOwnerId !== req.session.userId)) {');
+// Only the direct-confirm receipt gets the public media URL. Preserve the
+// publication metadata expected by the Vite client and idempotent retry path.
+{
+  const start = runtime.indexOf('router55.post("/clips/confirm", async (req, res) => {');
+  const end = runtime.indexOf('var clips_direct_default = router55;', start);
+  if (start < 0 || end < 0) throw new Error('Direct confirmation boundary changed');
+  let route = runtime.slice(start, end);
+  for (const clip of ['existing.rows[0]', 'clip']) {
+    const before = `res.json(finalClipReceipt(${clip}));`;
+    if (route.split(before).length !== 2) throw new Error('Confirmation receipt changed');
+    route = route.replace(before, `res.json({ ...finalClipReceipt(${clip}), url: publicClipUrl(r2Reference(key2)) });`);
+  }
+  runtime = runtime.slice(0, start) + route + runtime.slice(end);
+}
 // Publication must probe the actual media, even on hosts without system ffprobe.
 runtime = "import clipFfprobe from '@ffprobe-installer/ffprobe';\n" + runtime;
 replaceOnce('spawn2("ffprobe", [', 'spawn2(clipFfprobe.path, [');

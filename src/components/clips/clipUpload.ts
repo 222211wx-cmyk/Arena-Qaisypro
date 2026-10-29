@@ -114,9 +114,11 @@ export async function uploadClip(
   signal.throwIfAborted();
   const clip = body?.clip && typeof body.clip === "object" ? body.clip : null;
   const code = body?.code ?? clip?.code;
-  if (body?.ok === false || !clip || typeof code !== "string" || !/^HELX-\d{6}$/.test(code)) {
+  if (body?.ok !== true || typeof body.url !== "string" || !clip || typeof code !== "string" || !/^HELX-\d{6}$/.test(code)) {
     throw new Error("لم يؤكد الخادم نشر الكليب");
   }
+  const publicUrl = new URL(body.url);
+  if (publicUrl.protocol !== "https:" || publicUrl.username || publicUrl.password) throw new Error("رابط العرض غير صالح");
   trackEvent("clip_upload_success", { outcome: "published" });
-  return { ...clip, code, name: clip.title ?? body.name ?? clip.name ?? metadata.title };
+  return { ...clip, url: body.url, code, name: clip.title ?? body.name ?? clip.name ?? metadata.title };
 }

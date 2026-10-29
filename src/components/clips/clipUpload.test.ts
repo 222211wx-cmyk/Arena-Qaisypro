@@ -5,7 +5,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 type Sent = { url: string; method: string; body: unknown; headers: Record<string, string> };
 
-function setup({ me = 7, putStatus = 200, hold = false, confirm = { ok: true, clip: { id: 9, code: "HELX-123456", title: "Mon clip" } } } = {}) {
+function setup({ me = 7, putStatus = 200, hold = false, confirm = { ok: true, url: "https://public.example/confirmed.mp4", clip: { id: 9, code: "HELX-123456", title: "Mon clip" } } } = {}) {
   const fetches: Array<{ url: string; body: Record<string, unknown> | null; init?: RequestInit }> = [];
   const puts: Sent[] = [];
   let xhr: MockXHR | null = null;
@@ -62,7 +62,7 @@ describe("direct clip transport", () => {
     expect(puts[0].headers).toEqual({ "Content-Type": "video/mp4", "If-None-Match": "*" });
     expect(progress).toHaveBeenCalledWith(50, 5, 10);
     expect(fetches.find(f => f.url.endsWith("confirm"))!.body).toEqual({ key: "clips/abc", ownerId: 7 });
-    expect(result).toMatchObject({ code: "HELX-123456", name: "Mon clip" });
+    expect(result).toMatchObject({ code: "HELX-123456", name: "Mon clip", url: "https://public.example/confirmed.mp4" });
   });
 
   it("sends a 171 MiB original file directly without proxying bytes through API", async () => {
@@ -108,6 +108,15 @@ describe("direct clip transport", () => {
 
   it("rejects an unconfirmed receipt", async () => {
     setup({ confirm: { ok: false } as never });
+    await expect(uploadClip(file(), { title: "t", durationSec: 61 }, new AbortController().signal, () => {}, { expectedOwner: 7 })).rejects.toThrow();
+  });
+
+  it.each([
+    { clip: { code: "HELX-123456" }, url: "https://public.example/a.mp4" },
+    { ok: true, clip: { code: "HELX-123456" } },
+    { ok: true, clip: { code: "HELX-123456" }, url: "http://public.example/a.mp4" },
+  ])("rejects incomplete or unsafe confirmation receipts", async confirm => {
+    setup({ confirm: confirm as never });
     await expect(uploadClip(file(), { title: "t", durationSec: 61 }, new AbortController().signal, () => {}, { expectedOwner: 7 })).rejects.toThrow();
   });
 

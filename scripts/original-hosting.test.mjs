@@ -23,6 +23,8 @@ test('original archive is unchanged and protection removes destructive startup',
   assert.ok(!runtime.includes('spawn2("ffprobe", ['));
   assert.ok(runtime.includes('LOWER(${usersTable.email}) = LOWER(${username}) OR LOWER(${usersTable.username}) = LOWER(${username})'));
   assert.ok(runtime.includes('req.body?.email'));
+  assert.ok(runtime.includes('res.json({ ...finalClipReceipt(clip), url: publicClipUrl(r2Reference(key2)) });'));
+  assert.ok(runtime.includes('res.json({ ...finalClipReceipt(existing.rows[0]), url: publicClipUrl(r2Reference(key2)) });'));
   assert.ok(runtime.includes('req.body?.ownerId !== void 0 && req.body.ownerId !== req.session.userId'));
   assert.ok(runtime.includes('const bucket = process.env.R2_BUCKET?.trim();'));
   assert.ok(!runtime.includes('(process.env.R2_BUCKET_NAME || process.env.R2_BUCKET)?.trim()'));
