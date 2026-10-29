@@ -6,10 +6,10 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "@/components/social/social-i18n";
 import { subscribeAccountChanges } from "@/lib/account-session-events";
 import { useAuth } from "@/contexts/AuthContext";
-import { boundedSnapshot, clearAmeeq, languageOf, loadAmeeq, mapsLink, offlineAnswer, saveAmeeq, type Snapshot } from "@/lib/ameeq-light";
+import { boundedSnapshot, clearAmeeq, loadAmeeq, mapsLink, offlineAnswer, saveAmeeq, type Snapshot } from "@/lib/ameeq-light";
 import { useLang } from "@/contexts/LangContext";
 
-import { startAmeeqSpeech, type Recognition } from '@/lib/ameeq-speech';
+import { startAmeeqSpeech, speakAmeeq, type Recognition } from '@/lib/ameeq-speech';
 
 const DEPARTMENTS = [
   ['Compétitions', '/games'], ['Social', '/social'], ['Business', '/market'],
@@ -28,7 +28,18 @@ type Msg = {
   empireNote?: boolean;
   ownerDomain?: string;
   signature?: string;
+  map?: {location:string; searchUrl:string; imageUrl:string|null; attribution:string; notice:string} | null;
 };
+
+function MapCard({map}:{map:NonNullable<Msg['map']>}) {
+  const [failed,setFailed]=useState(false);
+  return <figure className="ameeq-map">
+    {map.imageUrl&&!failed&&<img loading="lazy" referrerPolicy="no-referrer" src={map.imageUrl} alt={`خريطة ${map.location}`} onError={()=>setFailed(true)} />}
+    <figcaption>{map.attribution} {map.notice}</figcaption>
+    {failed&&<p>تعذر تحميل صورة الخريطة؛ افتح رابط Google Maps.</p>}
+    <a href={map.searchUrl} target="_blank" rel="noopener noreferrer">🗺️ افتح {map.location} في Google Maps</a>
+  </figure>;
+}
 
 type CouncilReport = {
   id: number;
@@ -65,13 +76,16 @@ export default function AmeeqPage() {
   const [report, setReport] = useState<CouncilReport | null>(null);
   const [showReport, setShowReport] = useState(false);
   const [mobileTools, setMobileTools] = useState(false);
+  const [voiceLanguage,setVoiceLanguage] = useState('ar-MA');
+  const [speaking,setSpeaking] = useState(false);
+  const [lastReply,setLastReply] = useState('');
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<Recognition | null>(null);
   const busyRef = useRef(false);
   const [toolResults, setToolResults] = useState<{kind:'clips'|'citizens'; items:{id:number;title?:string;username:string}[]} | null>(null);
   const [toolNotice, setToolNotice] = useState('');
   const toolRequest = useRef<AbortController | null>(null);
-  useEffect(() => () => { recognitionRef.current?.abort(); toolRequest.current?.abort(); }, []);
+  useEffect(() => () => { recognitionRef.current?.abort(); toolRequest.current?.abort(); window.speechSynthesis?.cancel(); }, []);
   async function showTool(kind:'clips'|'citizens') {
     toolRequest.current?.abort();
     const controller = new AbortController(); toolRequest.current=controller;
@@ -89,8 +103,8 @@ export default function AmeeqPage() {
   function startMic() {
     if(listening){recognitionRef.current?.abort();setListening(false);return;}
     if(busyRef.current)return;
-    setListening(true);
-    recognitionRef.current=startAmeeqSpeech(text=>{setInput(text);void sendCommand(text);},setCacheNotice,()=>setListening(false));
+    stopSpeaking();setListening(true);
+    recognitionRef.current=startAmeeqSpeech(text=>{setInput(text);void sendCommand(text,true);},setCacheNotice,()=>setListening(false),voiceLanguage);
   }
   const chatRef = useRef<HTMLDivElement>(null);
 
@@ -113,7 +127,7 @@ export default function AmeeqPage() {
     return ()=>{active=false;};
   },[user?.id,loading]);
   useEffect(()=>subscribeAccountChanges(()=>{
-    recognitionRef.current?.abort(); toolRequest.current?.abort(); setToolResults(null); setToolNotice('');
+    recognitionRef.current?.abort(); toolRequest.current?.abort(); setToolResults(null); setToolNotice(''); window.speechSynthesis?.cancel();setSpeaking(false);setLastReply('');
     requestEpoch.current++;cacheOwner.current=null;setCacheEnabled(false);setMessages([{from:'ai',text:copy.greeting}]);
     setSnapshot({turns:[],clips:[],citizens:[],updatedAt:Date.now()});
     try{localStorage.removeItem('ameeq-offline-owner');}catch{}
@@ -147,13 +161,8 @@ export default function AmeeqPage() {
       setSnapshot(previous=>{const next=boundedSnapshot({...previous,clips,citizens});void saveAmeeq(owner,next).catch(()=>{});return next;});
     }).catch(()=>{});return()=>controller.abort();
   },[online,cacheEnabled,user?.id]);
-  function speak(text:string){
-    if(!('speechSynthesis' in window)){setCacheNotice('الصوت غير مدعوم فهاد الجهاز؛ الجواب الكتابي متاح.');return;}
-    const locale=languageOf(text);const voices=speechSynthesis.getVoices();
-    const voice=voices.find(v=>v.lang.toLowerCase().startsWith(locale));
-    if(!voice){setCacheNotice('ما لقيتش صوت مناسب لهاد اللغة فالجهاز؛ استعمل الجواب الكتابي.');return;}
-    speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(text);utterance.voice=voice;utterance.lang=voice.lang;speechSynthesis.speak(utterance);
-  }
+  function speak(text:string){ speakAmeeq(text,voiceLanguage,setCacheNotice,setSpeaking); }
+  function stopSpeaking(){window.speechSynthesis?.cancel();setSpeaking(false);}
   useEffect(() => {
     fetch(api("/api/governor/council-reports"), { credentials: "include" })
       .then(r => (r.ok ? r.json() : { reports: [] }))
@@ -165,7 +174,7 @@ export default function AmeeqPage() {
     chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  async function sendCommand(spoken?: string) {
+  async function sendCommand(spoken?: string, voiceMode=false, location?:string) {
     const cmd = (spoken ?? input).trim();
     if (!cmd || busyRef.current) return;
     busyRef.current=true;
@@ -184,7 +193,7 @@ export default function AmeeqPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ command: cmd }),
+        body: JSON.stringify({ command: cmd, ...(voiceMode?{mode:'voice'}:{}), ...(location?{location}:{}) }),
       });
       const data = await res.json();
       if(identity.current!==ownerAtStart||requestEpoch.current!==epochAtStart)return;
@@ -192,6 +201,8 @@ export default function AmeeqPage() {
         setMessages((m) => [...m, { from: "ai", text: `⚠️ ${data.error ?? de("وقع مشكل. عاود من بعد.", "Etwas ist schiefgelaufen. Bitte versuche es später erneut.")}` }]);
         return;
       }
+      setLastReply(data.reply ?? data.response ?? '');
+      if(voiceMode)speak(data.reply ?? data.response ?? '');
       const at=Date.now();
       persist([...snapshot.turns,{from:'user',text:cmd,at},{from:'ai',text:data.response ?? '…',at}]);
       setMessages((m) => [
@@ -202,6 +213,7 @@ export default function AmeeqPage() {
           empireNote: Boolean(data.empireNote),
           ownerDomain: data.ownerDomain,
           signature: data.signature,
+          map: data.map,
         },
       ]);
     } catch {
@@ -231,6 +243,14 @@ export default function AmeeqPage() {
         <a href={appLink('/clips')}>فتح الكليبسز</a> · <a href={appLink('/citizens')}>فتح دليل المواطنين</a>
         {toolNotice&&<p role="status">{toolNotice}</p>}
         {toolResults&&<ul className="ameeq-tool-results">{toolResults.items.map(item=><li key={item.id}><a href={appLink(toolResults.kind==='clips'?`/clips/${item.id}`:`/u/${encodeURIComponent(item.username)}`)}>{item.title||item.username}</a></li>)}</ul>}
+        <label htmlFor="ameeq-voice-language">لغة التعرف والصوت</label>
+        <select id="ameeq-voice-language" className="btn-imperial" value={voiceLanguage} onChange={e=>setVoiceLanguage(e.target.value)}>
+          <option value="ar-MA">العربية / الدارجة</option><option value="fr-FR">Français</option><option value="en-US">English</option><option value="zgh-MA">Tamazight / ⵜⴰⵎⴰⵣⵉⵖⵜ (حسب المتصفح)</option>
+        </select>
+        <p>الأمازيغية محلياً: تحيات محدودة بالعربية واللاتينية وتيفيناغ. التعرف والأصوات حسب دعم جهازك، بلا كشف تلقائي مضمون.</p>
+        <label htmlFor="ameeq-map-place">مكان صورة الخريطة</label>
+        <input id="ameeq-map-place" value={destination} onChange={e=>setDestination(e.target.value)} placeholder="مكان أو latitude,longitude" />
+          <button id="map-btn" className="btn-imperial" disabled={busy} onClick={()=>void sendCommand(`خريطة ${destination}`.trim(),false,destination.trim())}>🗺️ أرسل خريطة</button>
         <p>حفظ اختياري على هذا الجهاز: آخر 50 سؤالاً وجواباً (100 رسالة كحد أقصى)، 20 كليب (معلومات فقط)، و10 أسماء عامة من أصحاب الكليبسز. ليس فيديوهات أو رسائل خاصة.</p>
         {user&&!cacheEnabled&&<button id="offline-btn" className="btn-imperial" onClick={enableCache}>أوافق على الحفظ المحلي وتجهيز Offline</button>}
         {cacheEnabled&&<button id="offline-btn" className="btn-imperial" onClick={forgetCache}>مسح المحفوظ المحلي</button>}
@@ -239,6 +259,7 @@ export default function AmeeqPage() {
         <details open={toolsOpen} onToggle={e=>setToolsOpen(e.currentTarget.open)}><summary>الخريطة والصوت والمكالمات</summary>
           <p>فين بغيتي نوريك فالخريطة؟ الرشيدية نقطة عامة مؤقتة، ماشي عنوان مقر مؤكد.</p>
           <input aria-label="المكان على الخريطة" value={destination} onChange={e=>setDestination(e.target.value)} placeholder="اكتب المكان" />
+
           <a href={mapsLink(destination||'31.9310,-4.4250')} target="_blank" rel="noopener noreferrer">{destination?'فتح المكان في Google Maps':'فتح النقطة العامة للرشيدية'}</a>
           <button onClick={()=>speak(destination?`المكان المطلوب: ${destination}`:'نقطة عامة مؤقتة للرشيدية، ليست عنواناً مؤكداً للمنصة.')}>قراءة وصف المكان بصوت الجهاز</button>
           <p>Google Maps يحتاج اتصالاً؛ توجيه الملاحة الصوتي تابع لتطبيق Maps، وليس مفعلاً تلقائياً هنا.</p>
@@ -291,6 +312,7 @@ export default function AmeeqPage() {
               ? { background: "hsl(var(--muted))", marginLeft: "auto" }
               : { background: "hsl(var(--secondary))", border: "1px solid hsl(var(--border))" }),
           }}>
+            {msg.map && <MapCard map={msg.map} />}
             {msg.from === 'ai' && <button aria-label={`قراءة الجواب ${i+1}`} onClick={()=>speak(msg.text)}>🔊</button>}
             {msg.from === "ai" && msg.signature ? (
               <>
@@ -322,13 +344,18 @@ export default function AmeeqPage() {
         )}
       </div>
 
+      <div id="ameeq-audio-player" className="px-3 text-sm" role="status">
+        {speaking?'🔊 Ameeq AI EMP-001 يهضر…':'صوت Ameeq'}
+        <button className="btn-imperial" onClick={()=>speak(lastReply||messages.filter(m=>m.from==='ai').at(-1)?.text||'Ameeq EMP-001')}>🔊 استمع لـ Ameeq</button>
+        <button className="btn-imperial" onClick={stopSpeaking}>⏹ إيقاف الصوت</button>
+      </div>
       <footer className="ameeq-composer">
         <input id="ameeq-input" aria-label="سؤال Ameeq" value={input}
           onChange={e=>setInput(e.target.value)}
           onKeyDown={e=>{if(e.key==='Enter'&&!e.nativeEvent.isComposing)void sendCommand();}}
           placeholder={copy.placeholder} maxLength={500} />
         <button id="send-btn" className="btn-imperial" onClick={()=>void sendCommand()} disabled={busy||!input.trim()}>{copy.send}</button>
-        <button id="mic-btn" className="btn-imperial" aria-pressed={listening} disabled={busy} onClick={startMic}>{listening?'⏹ إيقاف':'🎤 ميكروفون'}</button>
+        <button id="mic-btn" className="btn-imperial" aria-pressed={listening} disabled={busy} onClick={startMic}>{listening?'⏹ إيقاف':'🎤 تحدث'}</button>
         <span className="text-xs w-full">بالضغط على الميكروفون توافق على خدمة التعرف الصوتي للمتصفح، وقد تعالج الصوت عبر الإنترنت؛ النص يُرسل لـAmeeq.</span>
       </footer>
       </div>

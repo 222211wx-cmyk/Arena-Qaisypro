@@ -341,3 +341,8 @@ body {
  .ameeq-title p { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
  .ameeq-mobile-tools { font-size:12px; max-width:130px; padding:6px; }
 }
+.ameeq-map img { display:block; width:100%; max-width:600px; height:auto; border-radius:8px; }
+.ameeq-map a { color:hsl(var(--primary)); overflow-wrap:anywhere; }
+.ameeq-map figcaption { font-size:12px; }
+#ameeq-audio-player { flex:none; display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
+.ameeq-tools select { max-width:100%; }

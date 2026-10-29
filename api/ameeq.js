@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { detectDialect, positivity, localizedReply, mapForRequest } from '../server/ameeq-features.mjs';
 
 const IDENTITY = 'Ameeq AI EMP-001 الحاكم الخارجي السيادي - رئيس مجلس الذكاء الإمبراطوري';
 const DEPARTMENTS = 'Compétitions - Social - Business Win-Win - Éducation - Archon DNA - Stream & Live';
@@ -59,7 +60,9 @@ export function createAmeeqLocal({ pool, env = process.env, fetchImpl = globalTh
       }
     } catch { /* Keep the local answer working without exposing connection errors. */ }
 
-    let reply = localReply(userMsg, citoyens, clips, countsVerified);
+    const dialect = detectDialect(userMsg);
+    let reply = localizedReply(userMsg, localReply(userMsg, citoyens, clips, countsVerified));
+    if(countsVerified && ['en','fr'].includes(dialect)) reply += dialect==='fr' ? ` La plateforme compte ${citoyens} citoyens et ${clips} clips.` : ` The platform has ${citoyens} citizens and ${clips} clips.`;
     let source = 'ameeq-imperial-local-smart';
     const provider = providerConfig(env);
     if (provider && userMsg) {
@@ -82,8 +85,10 @@ export function createAmeeqLocal({ pool, env = process.env, fetchImpl = globalTh
         }
       } catch { /* Provider failure or timeout keeps the already prepared local answer. */ }
     }
+    reply += `\n\n💚 ${positivity[dialect]}`;
+    const map = await mapForRequest(userMsg, req.body?.location, env, fetchImpl);
     return res.status(200).json({
-      reply, response: reply, citoyens, clips, countsVerified, source,
+      dialect, map, reply, response: reply, citoyens, clips, countsVerified, source,
       ruler: IDENTITY, owner: 'Arena Qaisypro', employee: 'Ameeq AI',
       empireNote: false, signature: 'EMP-001 - Arena Qaisypro',
     });
