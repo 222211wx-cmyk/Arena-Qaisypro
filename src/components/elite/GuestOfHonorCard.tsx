@@ -7,9 +7,9 @@ import type { EliteProfile } from "@/lib/elite-profiles";
 /** Gold-glow Guest of Honor card (only for status === "GuestOfHonor"). */
 export function GuestOfHonorCard({ profile, testId }: { profile: EliteProfile; testId: string }) {
   return (
-    <Link href={`/elite/${profile.slug}`} data-testid={testId} className="block h-full">
-      <Card className="group h-full overflow-hidden border-2 border-primary bg-card/80 shadow-[0_0_32px_hsl(var(--primary)/0.55)] ring-2 ring-primary/40">
-        <CardContent className="flex h-full flex-col gap-4 p-4">
+    <Link href={`/vip/${profile.slug}`} data-testid={testId} className="block h-full">
+      <Card className="group h-full overflow-hidden border-[3px] border-primary bg-card/80 shadow-[0_0_32px_hsl(var(--primary)/0.55)] ring-2 ring-primary/40">
+        <CardContent className="text-center flex h-full flex-col gap-4 p-4">
           <Badge
             className="self-center whitespace-normal bg-primary px-3 py-1 text-center text-xs font-black uppercase tracking-widest text-primary-foreground shadow-md"
             data-testid="badge-guest-of-honor"

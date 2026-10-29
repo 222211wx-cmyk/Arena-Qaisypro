@@ -348,3 +348,8 @@ body {
 .ameeq-tools select { max-width:100%; }
 .ameeq-map-tile { position:relative; width:256px; max-width:100%; }
 .ameeq-map-tile span { position:absolute; transform:translate(-50%,-100%); font-size:24px; }
+.guest-spotlight { position:relative; width:min(100%,480px); margin:0 auto 32px; }
+.guest-dismiss,.guest-dismiss-inline { min-width:36px; min-height:36px; padding:4px 10px; border:1px solid hsl(var(--primary)); border-radius:50%; background:hsl(var(--background)); color:hsl(var(--primary)); cursor:pointer; }
+.guest-dismiss { position:absolute; top:8px; right:8px; z-index:10; }
+.guest-dismiss-inline { float:right; position:relative; z-index:1; }
+@media(min-width:1280px) { .guest-spotlight { width:calc((100% - 36px) / 4 * 1.5); } }

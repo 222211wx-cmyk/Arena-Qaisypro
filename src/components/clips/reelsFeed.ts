@@ -11,6 +11,7 @@ import { icons } from "./clipIcons";
 import { mountInboxBadge } from "./inboxBadge";
 import {
   fetchEngagement,
+  clipFailureMessage,
   fetchFeed,
   fetchFollowStatus,
   fetchNotifications,
@@ -779,7 +780,7 @@ export function mountReels(root: HTMLElement, options: MountReelsOptions): Reels
       } catch (error) {
         if (controller.signal.aborted || destroyed) return;
         console.error("Clips feed request or rendering failed", error);
-        if (slides.length === 0) showFullState("error");
+        if (slides.length === 0) showFullState("error",error);
         else showDegraded();
       } finally {
         loading = false;
@@ -804,7 +805,7 @@ export function mountReels(root: HTMLElement, options: MountReelsOptions): Reels
   // ── Full-screen states (loading / empty / error) ─────────────────────────
   let fullState: HTMLElement | null = null;
   function clearFullState() { fullState?.remove(); fullState = null; }
-  function showFullState(kind: "loading" | "empty" | "error" | "degraded") {
+  function showFullState(kind: "loading" | "empty" | "error" | "degraded", failure?:unknown) {
     clearFullState();
     fullState = el("div", "reels-fullstate", { role: "status", "data-testid": `reels-state-${kind}` });
     if (kind === "loading") {
@@ -830,7 +831,7 @@ export function mountReels(root: HTMLElement, options: MountReelsOptions): Reels
       retry.addEventListener("click", () => void loadPage(true));
       fullState.append(p, retry);
     } else {
-      const p = el("p"); p.textContent = "Impossible de charger les Clips. Vérifiez la connexion.";
+      const p = el("p"); p.textContent = clipFailureMessage(failure);
       const retry = el("button", "reels-btn", { type: "button" }); retry.textContent = "Réessayer";
       retry.addEventListener("click", () => void loadPage(true));
       fullState.append(p, retry);
@@ -903,6 +904,7 @@ export function mountReels(root: HTMLElement, options: MountReelsOptions): Reels
           cell.append(fb);
         }
         const meta = el("div", "reels-grid-cell-meta");
+        const play=el("span","reels-grid-cell-title");play.textContent="▶ Lire / تشغيل";meta.append(play);
         const gridTitle = el("span", "reels-grid-cell-title");
         gridTitle.textContent = clip.title;
         gridTitle.dir = "auto";
@@ -912,6 +914,8 @@ export function mountReels(root: HTMLElement, options: MountReelsOptions): Reels
         cell.append(meta);
         cell.addEventListener("click", () => openFromGrid(clip.id));
         item.append(cell);
+        const dismiss=iconButton('Masquer ce clip sur cet écran','×','reels-grid-dismiss');
+        dismiss.onclick=event=>{event.stopPropagation();item.remove();};item.append(dismiss);
         grid.append(item);
         void identityPromise.then(async resolved => {
           if (resolved.status !== "authenticated" || !item.isConnected) return;
@@ -957,9 +961,9 @@ export function mountReels(root: HTMLElement, options: MountReelsOptions): Reels
     };
     nav.append(previous, label, next);
     view.append(nav);
-    } catch {
+    } catch(error) {
       if (controller.signal.aborted || destroyed || !gridOpen) return;
-      status.textContent = "Impossible de charger la grille.";
+      status.textContent = clipFailureMessage(error);
       const retry = el("button", "reels-btn", { type: "button" });
       retry.textContent = "Réessayer";
       retry.onclick = () => void buildGrid();
@@ -1008,7 +1012,9 @@ export function mountReels(root: HTMLElement, options: MountReelsOptions): Reels
     const back = iconButton("Fermer la recherche", reelsIcons.back());
     const input = el("input", "reels-search-input", { type: "search", placeholder: "Rechercher des clips, codes, citoyens…", "aria-label": "Recherche" }) as HTMLInputElement;
     input.value = searchQuery;
-    bar.append(back, input);
+    const clear=iconButton('Effacer la recherche / مسح الحقل','×');
+    clear.onclick=()=>{input.value='';input.dispatchEvent(new Event('input'));input.focus();};
+    bar.append(back, input,clear);
     const results = el("div", "reels-search-results", { role: "list" });
     searchOverlay.append(bar, results);
     shell.append(searchOverlay);
@@ -1058,6 +1064,7 @@ export function mountReels(root: HTMLElement, options: MountReelsOptions): Reels
             const fb = el("div", "reels-grid-cell-fallback"); fb.textContent = clip.title || clip.author.username; cell.append(fb);
           }
           const meta = el("div", "reels-grid-cell-meta");
+        const play=el("span","reels-grid-cell-title");play.textContent="▶ Lire / تشغيل";meta.append(play);
           const resultTitle = el("span", "reels-grid-cell-title");
           resultTitle.textContent = clip.title;
           resultTitle.dir = "auto";
@@ -1345,7 +1352,7 @@ export function mountReels(root: HTMLElement, options: MountReelsOptions): Reels
   });
   const query = new URLSearchParams(window.location.search);
   searchQuery = query.get("q")?.trim() ?? "";
-  const initialGrid = query.get("view") === "grid";
+  const initialGrid = query.get("view") !== "reels";
   if (query.get("search") === "1") queueMicrotask(openSearch);
   if (initialGrid) toggleGrid(true);
   else void loadPage();

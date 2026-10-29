@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Crown, Star, ChevronRight } from "lucide-react";
@@ -8,7 +9,8 @@ import { getEliteCarousel, isGuestOfHonor } from "@/lib/elite-profiles";
 import { GuestOfHonorCard } from "@/components/elite/GuestOfHonorCard";
 
 export default function ElitePage() {
-  const profiles = getEliteCarousel();
+  const [dismissed,setDismissed]=useState<string[]>([]);
+  const profiles = getEliteCarousel().filter(profile=>!dismissed.includes(profile.slug));
 
   return (
     <div className="min-h-[100dvh] bg-background">
@@ -36,7 +38,8 @@ export default function ElitePage() {
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {profiles.map((p, i) => isGuestOfHonor(p) ? (
             <div key={p.slug} className="flex justify-center sm:col-span-2 lg:col-span-3 xl:col-span-4">
-              <div className="w-full sm:w-[calc((100%-theme(spacing.5))*0.75)] lg:w-[calc((100%-theme(spacing.5)*2)*0.5)] xl:w-[calc((100%-theme(spacing.5)*3)*0.375)]">
+              <div className="relative w-full sm:w-[calc((100%-theme(spacing.5))*0.75)] lg:w-[calc((100%-theme(spacing.5)*2)*0.5)] xl:w-[calc((100%-theme(spacing.5)*3)*0.375)]">
+                <button className="guest-dismiss" type="button" aria-label={`Masquer ${p.name}`} onClick={()=>setDismissed(values=>[...values,p.slug])}>×</button>
                 <GuestOfHonorCard profile={p} testId={`card-elite-grid-${p.slug}`} />
               </div>
             </div>

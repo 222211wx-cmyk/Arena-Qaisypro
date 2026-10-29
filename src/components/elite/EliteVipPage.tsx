@@ -53,7 +53,7 @@ export function EliteVipPage({ profile }: { profile: EliteProfile }) {
           <p className="mt-4 text-4xl font-black text-primary" data-testid="text-rating">
             {profile.rating ?? 10}/10
           </p>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">GDNA editorial rating</p>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">GuestOfHonor · Position #1 · GDNA editorial rating</p>
           <div className="mt-6 flex justify-center">
             <EliteSocialRail links={profile.social} name={profile.name} className="flex-row" />
           </div>

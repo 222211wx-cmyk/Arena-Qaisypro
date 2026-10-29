@@ -199,6 +199,7 @@ function PageWrapper() {
           <Route path="/legends" component={LegendsPage} />
           <Route path="/legends/:id" component={LegendHubPage} />
           <Route path="/elite" component={ElitePage} />
+          <Route path="/vip/:slug" component={EliteProfilePage} />
           <Route path="/elite/:slug" component={EliteProfilePage} />
           <Route path="/pulse" component={PulsePage} />
           <Route path="/clips" component={ClipsPage} />

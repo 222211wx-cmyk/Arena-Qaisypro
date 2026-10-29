@@ -48,9 +48,9 @@ test('production cold start and public HTTP route perform no DB queries or exter
     registerHooks({ load(url, context, nextLoad) {
       const result = nextLoad(url, context);
       if (url.endsWith('/.original-backend/runtime.mjs')) {
-        if (!String(result.source).includes('pool = new Pool3({ connectionString });')) throw new Error('SQL probe anchor missing');
-        const source = String(result.source).replace('pool = new Pool3({ connectionString });',
-          'pool = new Pool3({ connectionString }); pool.query = (sql) => { if(globalThis.__allowAmeeq) return globalThis.__ameeqQuery(sql); globalThis.__queries++; throw new Error("Unexpected SQL"); }; pool.connect = async () => { if(globalThis.__allowAmeeq) return {query:globalThis.__ameeqQuery,release(){}}; globalThis.__queries++; throw new Error("Unexpected DB connect"); };');
+        if (!String(result.source).includes('pool = new Pool3({ connectionString, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5e3 });')) throw new Error('SQL probe anchor missing');
+        const source = String(result.source).replace('pool = new Pool3({ connectionString, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5e3 });',
+          'pool = new Pool3({ connectionString, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5e3 }); pool.query = (sql) => { if(globalThis.__allowAmeeq) return globalThis.__ameeqQuery(sql); globalThis.__queries++; throw new Error("Unexpected SQL"); }; pool.connect = async () => { if(globalThis.__allowAmeeq) return {query:globalThis.__ameeqQuery,release(){}}; globalThis.__queries++; throw new Error("Unexpected DB connect"); };');
         return { ...result, source };
       }
       return result;
@@ -116,4 +116,11 @@ test('persistent sessions use 30 day sliding expiry and verified reset commits a
  assert.ok(runtime.includes('credentialEpoch: changed.rows[0].credential_epoch'));
  assert.ok(runtime.includes('authorizeNewSession(req.session, revoked.credentialEpoch)'));
  assert.ok(!runtime.includes('DROP TABLE IF EXISTS email_verification_codes'));
+});
+test('hosted pool uses only production DATABASE_URL and explicit TLS, no guessed public schema or seeds',()=>{
+ assert.ok(runtime.includes('connectionString = process.env.DATABASE_URL'));
+ assert.ok(runtime.includes('ssl: { rejectUnauthorized: false }'));
+ assert.ok(runtime.includes('DATABASE_URL_MISSING'));
+ assert.ok(!runtime.includes('WHERE c.is_public = true'));
+ assert.ok(!runtime.includes('function autoSeedTestUsers'));
 });
