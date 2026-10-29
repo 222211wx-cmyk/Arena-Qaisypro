@@ -158,3 +158,9 @@ it('rejects an identifier matching one account email and another account usernam
   expect(connect).not.toHaveBeenCalled();
   expect(res.headers['Set-Cookie']).toBeUndefined();
 });
+it('accepts an email JSON field through the same collision-safe lookup', async () => {
+  const res = response();
+  await authHandler('login')(request({ email: ' citizen@example.invalid ', password: 'correct-password' }), res);
+  expect(res.statusCode).toBe(200);
+  expect(query.mock.calls.find(([sql]) => sql.includes('LOWER(email)'))?.[1]).toEqual(['citizen@example.invalid']);
+});

@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react";
 import { QueryClientContext } from "@tanstack/react-query";
+import { subscribeAccountChanges } from "@/lib/account-session-events";
+import { clearAmeeq } from "@/lib/ameeq-light";
 import { readApiJson } from "@/lib/api-transport";
 
 export interface AuthUser {
@@ -71,12 +73,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refreshUser();
     return () => { generation.current += 1; };
   }, []);
+  useEffect(()=>subscribeAccountChanges(()=>{void refreshUser();}),[]);
   const authenticate = async (path: string, body: Record<string, unknown>) => {
     const token = ++generation.current;
     try {
       const next = verifiedUser(await request(path, body));
       if (token !== generation.current) throw new Error("Session changed; please retry.");
       if (!next) throw new Error("The backend did not return an authenticated session.");
+      if(user?.id!==next.id){try{localStorage.removeItem('ameeq-offline-owner');await clearAmeeq();}catch{}}
+      if(token!==generation.current)throw new Error('Session changed; please retry.');
       setUser(next); setAuthError(null); queryClient?.clear();
     } finally {
       if (token === generation.current) setLoading(false);
@@ -86,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (username: string, password: string, birthDate: string) => authenticate("register", { username, password, birthDate });
   const logout = async () => {
     const token = ++generation.current;
+    try{localStorage.removeItem('ameeq-offline-owner');await clearAmeeq();}catch{}
     await request("logout", {});
     if (token === generation.current) { setUser(null); setLoading(false); queryClient?.clear(); }
   };

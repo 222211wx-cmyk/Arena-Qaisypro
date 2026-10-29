@@ -1,0 +1,90 @@
+import AdmZip from 'adm-zip';
+import { build } from 'esbuild';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const archive = new AdmZip(resolve(root, 'api-server.zip'));
+let runtime = archive.readAsText('api-server/dist/index.mjs');
+if (!runtime) throw new Error('Original backend bundle missing');
+
+// Fail closed if a future archive changes the audited startup boundaries.
+function replaceOnce(before, after) {
+  if (runtime.split(before).length !== 2) throw new Error(`Original startup changed: ${before.slice(0, 70)}`);
+  runtime = runtime.replace(before, after);
+}
+function replaceBlock(start, end, replacement) {
+  const a = runtime.indexOf(start);
+  const b = runtime.indexOf(end, a + start.length);
+  if (a < 0 || b < 0 || runtime.indexOf(start, a + 1) !== -1) throw new Error('Original startup boundary changed');
+  runtime = runtime.slice(0, a) + replacement + runtime.slice(b);
+}
+
+// Ameeq enhancement: replace its generic answer after the original
+// input validation, moderation and rate limiter. All other routes stay original.
+runtime = "import { createAmeeqOfficial } from './server/ameeq-official.mjs';\n" + runtime;
+replaceBlock('  const aiResponse = await callAiEngine(userInput, rateKey, req.log);', 'var ameeq_default = router40;',
+  '  return createAmeeqOfficial({ pool })(req, res);\n});\n');
+
+// Preserve the currently hosted backend and change ONLY the login lookup.
+replaceOnce('router4.post("/auth/login", async (req, res) => {\n  try {\n    const username = typeof req.body?.username === "string" ? req.body.username.trim() : "";', 'router4.post("/auth/login", async (req, res) => {\n  try {\n    const identifier = typeof req.body?.username === "string" && req.body.username.trim() ? req.body.username : req.body?.email;\n    const username = typeof identifier === "string" ? identifier.trim() : "";');
+
+const loginMarker = '.where(sql`LOWER(${usersTable.username}) = LOWER(${username})`).orderBy(usersTable.id).limit(2)';
+// Identify by the full query, including limit(2), to leave registration untouched.
+replaceOnce(loginMarker, '.where(sql`LOWER(${usersTable.email}) = LOWER(${username}) OR LOWER(${usersTable.username}) = LOWER(${username})`).orderBy(usersTable.id).limit(2)');
+
+// Hosting must not create/drop/alter tables, bootstrap administrators or seed users.
+replaceOnce('if (!fs2.existsSync(uploadsDir)) fs2.mkdirSync(uploadsDir, { recursive: true });', '// Application filesystem is read-only on Vercel; do not create local uploads at startup.');
+replaceOnce('ensureLegalTable().catch(console.error);', '// Existing legal schema is preserved without startup DDL.');
+replaceBlock('var sessionStoreReady = pool.query(`', 'var sessionSecret =',
+  'var sessionStoreReady = Promise.resolve(); // Existing production schema only.\n');
+replaceOnce('new PgStore({ pool, tableName: "user_sessions", createTableIfMissing: false })',
+  'new PgStore({ pool, tableName: "user_sessions", createTableIfMissing: false, pruneSessionInterval: false })');
+replaceOnce('startFirebaseCallExpirationSweep();\nstartOfflineRecoveryRevocationSweep();',
+  '// No autonomous cleanup sweeps in this hosting adapter.');
+replaceBlock('var rawPort = process.env["PORT"];', 'logger.info(getAgoraConfigStatus()',
+  '// Vercel owns the HTTP listener.\n');
+// Signaling upgrades remain available; its autonomous cleanup is not started.
+replaceOnce('  cleanup();\n  const cleanupInterval = setInterval(cleanup, 3e4);\n  cleanupInterval.unref();\n  httpServer.once("close", () => clearInterval(cleanupInterval));',
+  '  // Autonomous call cleanup disabled to preserve production data.');
+// Remove the entire seed function and startup job chain, not just its first call.
+replaceBlock('async function autoSeedTestUsers() {', '/*! Bundled license information:',
+  'const originalServer = http.createServer(app_default);\nattachSignalingServer(originalServer, sessionMiddleware);\nexport default originalServer;\n');
+runtime = runtime.replace('//# sourceMappingURL=index.mjs.map', '');
+const output = resolve(root, '.original-backend');
+mkdirSync(output, { recursive: true });
+// Preserve this readable audited input for safety tests. The production entry
+// bundles Firebase's ESM dependencies to avoid require(ESM) in Vercel's loader.
+writeFileSync(resolve(output, 'audited.mjs'), runtime);
+await build({
+  stdin: { contents: runtime, resolveDir: root, sourcefile: 'original-runtime.mjs' },
+  outfile: resolve(output, 'runtime.mjs'),
+  bundle: true, platform: 'node', format: 'esm', target: 'node22',
+  banner: { js: "import { createRequire as hostingCreateRequire } from 'node:module'; globalThis.require = hostingCreateRequire(import.meta.url);" },
+  external: ['@aws-sdk/*', '@google-cloud/*', 'bcrypt', 'drizzle-orm', 'drizzle-orm/*', 'pg', 'undici', 'google-auth-library'],
+});
+// Keep the archived logging workers beside the generated bundle.
+for (const entry of archive.getEntries()) {
+  if (/^api-server\/dist\/[^/]+\.mjs$/.test(entry.entryName) && !/\/(index|media-worker)\.mjs$/.test(entry.entryName)) {
+    writeFileSync(resolve(output, entry.entryName.split('/').at(-1)), entry.getData());
+  }
+}
+// The archive uses generated require helpers which dependency tracing cannot
+// fully follow. Explicitly package the lockfile's installed production modules,
+// preserving nested versions and native binaries rather than guessing files.
+const lock = JSON.parse(readFileSync(resolve(root, 'package-lock.json'), 'utf8'));
+const dependencyRoot = resolve(output, 'node_modules');
+rmSync(dependencyRoot, { recursive: true, force: true });
+let packaged = 0;
+for (const [name, metadata] of Object.entries(lock.packages)) {
+  if (!name.startsWith('node_modules/') || metadata.dev || name.slice(13).includes('/node_modules/')) continue;
+  const source = resolve(root, name);
+  if (!existsSync(source)) { if (metadata.optional) continue; throw new Error(`Missing runtime package ${name}`); }
+  const destination = resolve(output, name);
+  mkdirSync(dirname(destination), { recursive: true });
+  cpSync(source, destination, { recursive: true, dereference: true });
+  packaged++;
+}
+console.log(`Packaged ${packaged} production dependency trees explicitly.`);
+console.log('Prepared original backend: startup DDL, seeding, admin bootstrap and autonomous jobs disabled.');
