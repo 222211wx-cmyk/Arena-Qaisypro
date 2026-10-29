@@ -1,3 +1,4 @@
+import { registerCloneDictionaries } from '@/lib/clone-translation';
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 
 export type Lang = "ar" | "en" | "fr" | "es" | "de";
@@ -2548,6 +2549,13 @@ function detectInitialLang(): Lang {
 
 export function LangProvider({ children, manageDocument = true }: { children: ReactNode; manageDocument?: boolean }) {
   const [lang, setLangState] = useState<Lang>(detectInitialLang);
+  useEffect(()=>{
+    registerCloneDictionaries(T);
+    const change=(event:Event)=>{const code=(event as CustomEvent<string>).detail;const mapped=code==='ar-MA'||code==='ary'||code==='tzm'?'ar':code;if(['ar','fr','en','es','de'].includes(mapped)){try{localStorage.setItem('gdna_lang',mapped);}catch{}setLangState(mapped as Lang);}};
+    window.addEventListener('ameeq-language',change);
+    return ()=>window.removeEventListener('ameeq-language',change);
+  },[]);
+
 
   const setLang = (l: Lang) => {
     localStorage.setItem("gdna_lang", l);

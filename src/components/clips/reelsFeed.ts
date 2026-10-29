@@ -811,7 +811,7 @@ export function mountReels(root: HTMLElement, options: MountReelsOptions): Reels
       fullState.append(el("div", "reels-spinner", { "aria-label": "Chargement" }));
       const p = el("p", "reels-muted"); p.textContent = "Chargement des Clips…"; fullState.append(p);
     } else if (kind === "empty") {
-      const p = el("p"); p.textContent = searchQuery ? "Aucun résultat pour cette recherche." : "Aucun Clip pour l'instant. Soyez le premier à publier.";
+      const p = el("p"); p.textContent = searchQuery ? "Aucun résultat pour cette recherche." : "Aucun clip public retourné. Actualisez ou vérifiez les filtres.";
       const row = el("div", "reels-btn-row");
       const upload = el("button", "reels-btn", { type: "button" }); upload.textContent = "Publier un clip";
       upload.addEventListener("click", options.onOpenComposer);
@@ -819,7 +819,8 @@ export function mountReels(root: HTMLElement, options: MountReelsOptions): Reels
       searchBtn2.addEventListener("click", openSearch);
       const gridBtn2 = el("button", "reels-btn reels-btn-secondary", { type: "button" }); gridBtn2.textContent = "Grille";
       gridBtn2.addEventListener("click", () => toggleGrid(true));
-      row.append(upload, searchBtn2, gridBtn2);
+      const retry=el("button","reels-btn reels-btn-secondary",{type:"button"});retry.textContent="Réessayer";retry.onclick=()=>void loadPage(true);
+      row.append(upload, searchBtn2, gridBtn2,retry);
       fullState.append(p, row);
     } else if (kind === "degraded") {
       // Service throttled AND no clips returned: this is a temporary failure to

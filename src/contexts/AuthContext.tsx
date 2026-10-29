@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react";
 import { QueryClientContext } from "@tanstack/react-query";
-import { subscribeAccountChanges } from "@/lib/account-session-events";
+import { subscribeAccountChanges, announceAccountChange, subscribeSessionWake } from "@/lib/account-session-events";
 import { clearAmeeq } from "@/lib/ameeq-light";
 import { readApiJson } from "@/lib/api-transport";
 
@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useContext(QueryClientContext);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recoveryAccessPending,setRecoveryAccessPending] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const generation = useRef(0);
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -47,7 +48,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (path === "me" && response.status === 401) return null;
     const data = await readApiJson(response);
-    if (!response.ok) throw new Error(`Authentication request failed (HTTP ${response.status}).`);
+    if (!response.ok) {
+      const error = data && typeof data === 'object' && 'error' in data && typeof data.error === 'string' ? data.error : 'Authentication request failed.';
+      throw new Error(`${error} (HTTP ${response.status})`);
+    }
     return data;
   };
   const verifiedUser = (data: unknown): AuthUser | null => {
@@ -73,7 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refreshUser();
     return () => { generation.current += 1; };
   }, []);
-  useEffect(()=>subscribeAccountChanges(()=>{void refreshUser();}),[]);
+  useEffect(()=>subscribeAccountChanges(()=>{queryClient?.clear();void refreshUser();}),[]);
+  useEffect(()=>subscribeSessionWake(()=>{void refreshUser();}),[]);
   const authenticate = async (path: string, body: Record<string, unknown>) => {
     const token = ++generation.current;
     try {
@@ -82,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!next) throw new Error("The backend did not return an authenticated session.");
       if(user?.id!==next.id){try{localStorage.removeItem('ameeq-offline-owner');await clearAmeeq();}catch{}}
       if(token!==generation.current)throw new Error('Session changed; please retry.');
-      setUser(next); setAuthError(null); queryClient?.clear();
+      setUser(next); setAuthError(null);setRecoveryAccessPending(false); queryClient?.clear();announceAccountChange(next.id);
     } finally {
       if (token === generation.current) setLoading(false);
     }
@@ -93,15 +98,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = ++generation.current;
     try{localStorage.removeItem('ameeq-offline-owner');await clearAmeeq();}catch{}
     await request("logout", {});
-    if (token === generation.current) { setUser(null); setLoading(false); queryClient?.clear(); }
+    if (token === generation.current) { setUser(null);setRecoveryAccessPending(false); setLoading(false); queryClient?.clear();announceAccountChange(null); }
   };
-  const changePassword = async (_currentPassword: string, _newPassword: string): Promise<string> => {
-    throw new Error("Password changes require the authenticated Arena backend integration.");
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<string> => {
+    const data = await request('change-password',{currentPassword,newPassword}) as {message?:string};
+    announceAccountChange();await refreshUser();return data.message ?? 'Password changed.';
   };
-  const recoverAccess = async (_idToken: string, _returnTo: string) => {
-    throw new Error("Account recovery requires the authenticated Arena backend integration.");
+  const recoverAccess = async (idToken: string, _returnTo: string) => {
+    // The proof is consumed once on the server. Never replay it after a failed /me refresh.
+    await request('recovery/access',{idToken});
+    setRecoveryAccessPending(true);announceAccountChange();queryClient?.clear();
+    await refreshUser();
   };
-  return <AuthContext.Provider value={{ user, loading, authError, login, register, changePassword, logout, refreshUser, recoverAccess, recoveryAccessPending: false }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, authError, login, register, changePassword, logout, refreshUser, recoverAccess, recoveryAccessPending }}>{children}</AuthContext.Provider>;
 }
 export function useAuth() {
   const ctx = useContext(AuthContext);

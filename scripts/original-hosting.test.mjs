@@ -109,3 +109,11 @@ test('production cold start and public HTTP route perform no DB queries or exter
   assert.equal(probe.status, 0, probe.stdout + probe.stderr);
   assert.ok(probe.stdout.includes('COLD_START_SAFE'));
 });
+test('persistent sessions use 30 day sliding expiry and verified reset commits a fenced session',()=>{
+ assert.ok(runtime.includes('PERSISTENT_SESSION_TTL_MS = 30 * DAY_MS'));
+ assert.ok(runtime.includes('httpOnly: true'));
+ assert.ok(runtime.includes('rolling: true'));
+ assert.ok(runtime.includes('credentialEpoch: changed.rows[0].credential_epoch'));
+ assert.ok(runtime.includes('authorizeNewSession(req.session, revoked.credentialEpoch)'));
+ assert.ok(!runtime.includes('DROP TABLE IF EXISTS email_verification_codes'));
+});

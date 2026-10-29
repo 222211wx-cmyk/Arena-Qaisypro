@@ -164,7 +164,9 @@ function PageWrapper() {
         <Switch>
           <Route path="/" component={Home} />
           <Route path="/login"><Login /></Route>
-          <Route path="/recover-account" component={RecoverAccount} />
+          <Route path="/forgot-password"><RecoverAccount reset /></Route>
+          <Route path="/competitions"><Redirect to="/games" replace /></Route>
+          <Route path="/recover-account"><RecoverAccount /></Route>
           <Route path="/recovery-phone" component={RecoveryPhone} />
           <Route path="/recovery-code" component={RecoveryCodePage} />
           <Route path="/recover-with-code" component={RecoverWithCode} />
@@ -262,9 +264,9 @@ function Router() {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/30 selection:text-white">
       <ArenaDocumentTitle />
-      <div className={`sticky top-0 z-50 ${!isChoiceEntry && !isMessagesEntry ? "arena-topbar header-imperial" : ""}`}>
+      <div className={`sticky top-0 z-50 ${!isMessagesEntry ? "arena-topbar header-imperial" : ""}`}>
       <BackButton />
-      {!isChoiceEntry && !isMessagesEntry && <Navbar />}
+      {!isMessagesEntry && <Navbar />}
       {isMessagesEntry && (
         <header className="border-b border-border bg-background">
           <div className="mx-auto flex max-w-6xl justify-end px-3 py-2">

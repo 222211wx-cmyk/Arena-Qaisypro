@@ -39,6 +39,29 @@ const loginMarker = '.where(sql`LOWER(${usersTable.username}) = LOWER(${username
 // Identify by the full query, including limit(2), to leave registration untouched.
 replaceOnce(loginMarker, '.where(sql`LOWER(${usersTable.email}) = LOWER(${username}) OR LOWER(${usersTable.username}) = LOWER(${username})`).orderBy(usersTable.id).limit(2)');
 
+replaceOnce('PERSISTENT_SESSION_TTL_MS = 365 * DAY_MS;', 'PERSISTENT_SESSION_TTL_MS = 30 * DAY_MS;');
+
+// A verified reset consumes the phone proof once, fences old sessions, then
+// commits a fresh server-side session. Never turn the proof into a browser token.
+replaceOnce('return { userId: userId4, sessionIds: sessions.rows.map((row) => row.sid) };',
+  'return { userId: userId4, credentialEpoch: changed.rows[0].credential_epoch, sessionIds: sessions.rows.map((row) => row.sid) };');
+replaceOnce(`    if (req.session?.userId === revoked.userId) {
+      await new Promise((resolve) => req.session.destroy(() => resolve()));
+      res.clearCookie("connect.sid", {
+        path: "/",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production"
+      });
+    }
+    res.json(ResetRecoveryPasswordResponse.parse({ success: true }));`,
+`    await new Promise((resolve, reject) => req.session.regenerate(error => error ? reject(error) : resolve()));
+    req.session.userId = revoked.userId;
+    authorizeNewSession(req.session, revoked.credentialEpoch);
+    configureSessionLifetime(req.session, true);
+    await new Promise((resolve, reject) => req.session.save(error => error ? reject(error) : resolve()));
+    res.json(ResetRecoveryPasswordResponse.parse({ success: true }));`);
+
 // Hosting must not create/drop/alter tables, bootstrap administrators or seed users.
 replaceOnce('if (!fs2.existsSync(uploadsDir)) fs2.mkdirSync(uploadsDir, { recursive: true });', '// Application filesystem is read-only on Vercel; do not create local uploads at startup.');
 replaceOnce('ensureLegalTable().catch(console.error);', '// Existing legal schema is preserved without startup DDL.');

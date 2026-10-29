@@ -51,7 +51,7 @@ export function useRecoveryMetadata(title: string, description: string) {
   }, [title, description]);
 }
 
-export default function RecoverAccount() {
+export default function RecoverAccount({reset=false}:{reset?:boolean}) {
   useRecoveryLanguage();
   const { lang } = useLang();
   const copy = recoveryCopy(lang);
@@ -59,6 +59,8 @@ export default function RecoverAccount() {
   const search = useSearch();
   const next = recoveryReturnPath(search);
   const signIn = next?.startsWith("/lite") ? "/lite/login" : `/login${next ? `?${new URLSearchParams({ next })}` : ""}`;
+  const [identifier,setIdentifier]=useState('');
+  const [birthDate,setBirthDate]=useState('');
   const [config, setConfig] = useState<RecoveryConfig | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -80,6 +82,13 @@ export default function RecoverAccount() {
         <CardDescription>{copy.intro}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {reset&&<section className="space-y-3">
+          <h1>استرجاع كلمة السر / Reset password</h1>
+          <label className="block">البريد أو اسم اللاعب / Email or player name<input className="block w-full bg-background p-2" autoComplete="username" value={identifier} onChange={e=>setIdentifier(e.target.value)} /></label>
+          <label className="block">تاريخ الميلاد / Date of birth<input className="block w-full bg-background p-2" type="date" value={birthDate} onChange={e=>setBirthDate(e.target.value)} /></label>
+          <p>هاد المعلومات للمساعدة فقط وماشي إثبات ملكية. الاسترجاع كيحتاج الهاتف الموثّق مسبقاً ورمز Firebase SMS. ما كاينش إرسال Email/Twilio مهيّأ، وجدول email_verification_codes ما تبدّلش. ما غاديش نكشف وجود بريد أو تاريخ ميلاد حساب للزوار.</p>
+        </section>}
+
         {success || recoveryAccessPending ? <>
           <p role="status" className="rounded-md border border-primary/30 bg-primary/10 p-3 text-sm" data-testid="status-recovery-access-success">{copy.accessSuccess}</p>
           {authError && <p role="alert" className="text-sm text-destructive">{copy.accessRefreshFailed}</p>}
@@ -90,7 +99,7 @@ export default function RecoverAccount() {
             <Button variant="outline" onClick={() => setAttempt(value => value + 1)} data-testid="button-recovery-config-retry">{copy.retry}</Button>
           </> : !config ? <p role="status" data-testid="status-recovery-config-loading">{copy.loading}</p> :
             !config.configured || !config.firebaseConfig ? <p role="alert" className="text-sm text-destructive" data-testid="status-recovery-config-unavailable">{copy.unavailable}</p> :
-              <PhoneRecoveryFlow action="access" config={config.firebaseConfig} lang={lang} onAccess={idToken => recoverAccess(idToken, next ?? "/social")} onSuccess={() => {
+              <PhoneRecoveryFlow action={reset?"reset":"access"} config={config.firebaseConfig} lang={lang} onAccess={idToken => recoverAccess(idToken, next ?? "/social")} onSuccess={() => {
                 setSuccess(true);
                 // Only check the committed cookie now. Never reuse the SMS
                 // proof or return to a new-SMS form if this check is offline.

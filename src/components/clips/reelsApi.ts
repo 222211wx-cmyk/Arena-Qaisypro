@@ -103,8 +103,9 @@ export async function fetchFeed(
   const timer = setTimeout(() => controller.abort(new Error("Le fil met trop de temps à répondre. Réessayez.")), 15_000);
   try {
     const data = await getJson<FeedResponse>(`/clips/feed?${params.toString()}`, controller.signal);
+    if (!data || !Array.isArray(data.clips)) throw new Error("Invalid clips feed response — retry instead of assuming an empty feed.");
     return {
-      clips: Array.isArray(data.clips) ? data.clips : [],
+      clips: data.clips,
       hasMore: Boolean(data.hasMore),
       nextBefore: data.nextBefore ?? null,
       degraded: Boolean(data.degraded),
