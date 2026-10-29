@@ -11,7 +11,7 @@ const words:Record<CloneLang,string[]>={
  'es':['Iniciar sesión','Registro','Correo o nombre de jugador','Contraseña','Fecha de nacimiento','Recordarme','Olvidé mi contraseña','Enviar','Buscar','Clips','Publicar un clip','No se devolvieron clips públicos. Actualiza o comprueba los filtros.','Reintentar','Inicio','Social','Comercio','Educación','Competiciones','Detener','Guardar corrección'],
 };
 for(const [locale,label] of Object.entries({'en':'Player Name','fr':'Nom du joueur','ar-MA':'اسم اللاعب','ary':'اسم اللاعب','tzm':'اسم اللاعب','es':'Nombre de jugador'}))words[locale as CloneLang].push(label);
-const aliases:Record<string,number>={'Player Name':20,'PLAYER NAME':20,'Nom du joueur':20,'اسم اللاعب':20,'DATE OF BIRTH':4,'Date of Birth — all ages welcome':4,'Aucun Clip pour l\'instant. Soyez le premier à publier.':11,'Rechercher':8,'Recherche':8,'Retour':13,'Publier un clip':10};
+const aliases:Record<string,number>={'Player Name':20,'PLAYER NAME':20,'Nom du joueur':20,'اسم اللاعب':20,'DATE OF BIRTH':4,'Date of Birth — all ages welcome':4,'Aucun Clip pour l\'instant. Soyez le premier à publier.':11,'Rechercher':8,'Recherche':8,'Publier un clip':10};
 const records=new Map<Text,{source:string;last:string}>();
 let dictionaries:Record<string,Record<string,string>>={};
 const reverseDictionary=new Map<string,string>();
@@ -41,7 +41,7 @@ export function mountCloneTranslation(){
  const status=widget.querySelector<HTMLElement>('#clone-status')!;
  const root=document.getElementById('root')!;
  let timer:ReturnType<typeof setTimeout>|undefined;
- const blocked='script,style,textarea,input,[contenteditable],video,audio,[role="log"],.reels-author,.reels-caption,.ameeq-map,[data-user-content],.message-content';
+ const blocked='script,style,#global-navigation,.arena-history,.arena-brand,textarea,input,[contenteditable],video,audio,[role="log"],.reels-author,.reels-caption,.ameeq-map,[data-user-content],.message-content';
  function apply(){
   const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let node:Text|null;
   while((node=walker.nextNode() as Text|null)){
