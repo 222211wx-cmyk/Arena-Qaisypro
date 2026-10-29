@@ -45,7 +45,7 @@ async function postJson(url: string, body: Record<string, unknown>, signal: Abor
 
 
 export async function currentUploadOwner(signal?: AbortSignal): Promise<number> {
-  const response = await fetch(`${import.meta.env.BASE_URL}api/auth/me`, { credentials: "include", cache: "no-store", signal });
+  const response = await fetch(`${import.meta.env.BASE_URL}api/auth/session`, { credentials: "include", cache: "no-store", signal });
   if (response.status === 401) throw new Error("Reconnectez-vous pour publier");
   if (!response.ok) throw new Error(`Vérification de session indisponible (${response.status}) — réessayez`);
   const me = await response.json();

@@ -21,6 +21,10 @@ function replaceBlock(start, end, replacement) {
   runtime = runtime.slice(0, a) + replacement + runtime.slice(b);
 }
 
+// Alias the original database-backed, credential-epoch checked session handler.
+// Never use the separate legacy auth adapter or trust a browser account object.
+replaceOnce('router4.get("/auth/me", async (req, res) => {',
+  'router4.get(["/auth/me", "/auth/session"], async (req, res) => {');
 // Restore the direct-upload endpoint used by the current Vite client. Keep the
 // archive intact and mount after its existing account fence and rate limiter.
 runtime = "import { createClipPresign, publicClipUrl } from './server/clip-r2.mjs';\n" + runtime;

@@ -6,7 +6,7 @@ without editing the archive or adding a Next.js route that would not be served.
 
 ## Current browser lifecycle
 
-1. Check the signed-in citizen with `/api/auth/me`.
+1. Check the signed-in citizen with `/api/auth/session` (an alias of the original database-backed `/api/auth/me` handler).
 2. `POST /api/clips/presign` validates the account, title, media type and positive
    size (at most 5 GiB, matching the current browser). The existing per-citizen
    limiter is retained. It stores an expiring, account-owned `direct-put` receipt

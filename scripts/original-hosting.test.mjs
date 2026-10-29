@@ -35,7 +35,9 @@ test('original routes remain unchanged apart from restoring direct clip presign'
   const routes = s => s.match(/^(?:router\d*|app|app_default|adminRouter)\.(?:get|post|put|delete|patch|use)\(.*$/gm);
   const added = 'router55.post("/clips/presign", createClipPresign({ pool, r2Config, resolveClipUploadType, clipDownloadExtension, validateClipDisplayTitle, ClipUploadError, logger }));';
   assert.ok(routes(runtime).includes(added));
-  assert.deepEqual(routes(runtime).filter(route => route !== added), routes(original));
+  const sessionAlias = 'router4.get(["/auth/me", "/auth/session"], async (req, res) => {';
+  assert.ok(routes(runtime).includes(sessionAlias));
+  assert.deepEqual(routes(runtime).filter(route => route !== added).map(route => route === sessionAlias ? 'router4.get("/auth/me", async (req, res) => {' : route), routes(original));
   const config = JSON.parse(readFileSync('vercel.json'));
   assert.deepEqual(config.rewrites[0], { source: '/api/:path*', destination: '/api/original' });
 });
@@ -123,6 +125,12 @@ test('production cold start and public HTTP route perform no DB queries or exter
         let text=''; res.on('data', chunk => text+=chunk); res.on('end', () => resolve({ status: res.statusCode, text }));
       }).on('error', reject);
     });
+    const sessionResult = await new Promise((resolve, reject) => {
+      http.get({ host:'127.0.0.1', port:server.address().port, path:'/api/auth/session' }, res => {
+        res.resume(); res.on('end', () => resolve(res.statusCode));
+      }).on('error', reject);
+    });
+    if (sessionResult !== 401) throw new Error('Session endpoint must reject anonymous requests: ' + sessionResult);
     if (result.status !== 200 || JSON.parse(result.text).status !== 'ok') throw new Error('Original health endpoint failed: '+JSON.stringify(result));
     await new Promise(r => setTimeout(r, 300));
     if (globalThis.__queries || externalAttempts) throw new Error('Unexpected startup activity: '+JSON.stringify({ queries: globalThis.__queries, externalAttempts }));
