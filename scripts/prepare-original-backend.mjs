@@ -23,9 +23,14 @@ function replaceBlock(start, end, replacement) {
 
 // Ameeq enhancement: replace its generic answer after the original
 // input validation, moderation and rate limiter. All other routes stay original.
-runtime = "import { createAmeeqOfficial } from './server/ameeq-official.mjs';\n" + runtime;
+runtime = "import { createAmeeqLocal } from './api/ameeq.js';\n" + runtime;
 replaceBlock('  const aiResponse = await callAiEngine(userInput, rateKey, req.log);', 'var ameeq_default = router40;',
-  '  return createAmeeqOfficial({ pool })(req, res);\n});\n');
+  '  return createAmeeqLocal({ pool })(req, res);\n});\n');
+
+// Accept both the existing hosted UI contract and the requested message/question API.
+replaceOnce('  const raw = req.body?.command;', '  const raw = req.body?.message || req.body?.question || req.body?.command;');
+replaceBlock('  if (!userInput) {\n    res.json({', '  const check3 = await validateContent(userInput, { allowTrivial: true });',
+  '  if (!userInput) return createAmeeqLocal({ pool })(req, res);\n');
 
 // Preserve the currently hosted backend and change ONLY the login lookup.
 replaceOnce('router4.post("/auth/login", async (req, res) => {\n  try {\n    const username = typeof req.body?.username === "string" ? req.body.username.trim() : "";', 'router4.post("/auth/login", async (req, res) => {\n  try {\n    const identifier = typeof req.body?.username === "string" && req.body.username.trim() ? req.body.username : req.body?.email;\n    const username = typeof identifier === "string" ? identifier.trim() : "";');

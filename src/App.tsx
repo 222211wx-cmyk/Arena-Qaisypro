@@ -159,7 +159,7 @@ function ArenaDocumentTitle() {
 function PageWrapper() {
   const [location] = useLocation();
   return (
-    <main key={location} className="flex-1 page-transition">
+    <main key={location} className={`flex-1 page-transition ${location === "/ameeq" ? "ameeq-route" : ""}`}>
       <ErrorBoundary key={location}>
         <Switch>
           <Route path="/" component={Home} />
@@ -262,7 +262,7 @@ function Router() {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/30 selection:text-white">
       <ArenaDocumentTitle />
-      <div className="sticky top-0 z-50">
+      <div className={`sticky top-0 z-50 ${!isChoiceEntry && !isMessagesEntry ? "arena-topbar header-imperial" : ""}`}>
       <BackButton />
       {!isChoiceEntry && !isMessagesEntry && <Navbar />}
       {isMessagesEntry && (
@@ -274,7 +274,7 @@ function Router() {
       )}
       </div>
       <PageWrapper />
-      {!isChoiceEntry && !isMessagesEntry && <Footer />}
+      {!isChoiceEntry && !isMessagesEntry && location !== "/ameeq" && <Footer />}
       <CookieBanner />
       <AgeGate />
       <GeoBlock />
