@@ -44,7 +44,7 @@ export async function signClipPut(config, input) {
 
 /** Mounted after the original session/owner fence and per-citizen rate limiter. */
 export function createClipPresign({ pool, r2Config, resolveClipUploadType,
-  clipDownloadExtension, validateClipDisplayTitle, ClipUploadError, logger, sign = signClipPut }) {
+  clipDownloadExtension, validateClipDisplayTitle, ClipUploadError, logger, sign = signClipPut, env = process.env }) {
   return async (req, res) => {
     res.set('Cache-Control', 'no-store');
     const userId = req.session?.userId;
@@ -72,9 +72,11 @@ export function createClipPresign({ pool, r2Config, resolveClipUploadType,
       }
       const id = randomUUID();
       const key = `clips/original/${userId}/${id}${clipDownloadExtension(contentType)}`;
+      const url = getPublicUrl(key, env);
+      if (!url) return res.status(503).json({ error: 'Public R2 clip URL is not configured' });
       // Sign the browser's exact header (including generic mobile MIME). The
       // normalized type is stored for playback; confirmation still probes bytes.
-      const url = await sign(config, {
+      const uploadUrl = await sign(config, {
         Bucket: config.bucket, Key: key, ContentType: rawType || 'application/octet-stream',
         ContentLength: size, IfNoneMatch: '*',
       });
@@ -86,7 +88,7 @@ export function createClipPresign({ pool, r2Config, resolveClipUploadType,
         new Date(Date.now() + 3600_000)]);
       // Acceptance is not publication. Existing /clips/confirm verifies storage,
       // probes media and commits the clip + upload receipt transactionally.
-      return res.status(201).json({ url, uploadUrl: url, key });
+      return res.status(201).json({ url, uploadUrl, key });
     } catch (error) {
       logger.error({ err: error }, 'Direct clip presign failed');
       return res.status(error instanceof ClipUploadError ? error.status : 503)

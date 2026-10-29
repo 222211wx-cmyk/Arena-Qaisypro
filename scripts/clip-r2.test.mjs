@@ -6,6 +6,7 @@ class ClipUploadError extends Error { constructor(status, message) { super(messa
 function setup(overrides = {}) {
   const queries = [], signed = [], errors = [];
   const deps = {
+    env: { R2_PUBLIC_URL: 'https://media.example.test' },
     pool: { async query(sql, params) { queries.push({ sql, params }); return { rows: [] }; } },
     r2Config: () => ({ bucket: 'gdna-arena' }),
     resolveClipUploadType: (type, name) => type.startsWith('video/') ? type : type === 'application/octet-stream' && name.endsWith('.mp4') ? 'video/mp4' : null,
@@ -47,8 +48,9 @@ test('accepts an account-scoped original PUT without publishing a clip', async (
   assert.equal(f.res.statusCode, 201);
   assert.equal(f.res.headers['Cache-Control'], 'no-store');
   assert.match(f.res.body.key, /^clips\/original\/7\/[a-f0-9-]+\.mp4$/);
-  assert.equal(f.res.body.url, 'https://upload.example.test/signed');
-  assert.equal(f.res.body.uploadUrl, f.res.body.url);
+  assert.equal(f.res.body.uploadUrl, 'https://upload.example.test/signed');
+  assert.equal(f.res.body.url, `https://media.example.test/${f.res.body.key}`);
+  assert.notEqual(f.res.body.url, f.res.body.uploadUrl);
   assert.deepEqual(f.signed[0], { Bucket: 'gdna-arena', Key: f.res.body.key, ContentType: 'video/mp4', ContentLength: 42, IfNoneMatch: '*' });
   assert.equal(f.queries.length, 1);
   assert.match(f.queries[0].sql, /INSERT INTO r2_clip_uploads/);
@@ -88,7 +90,7 @@ test('validates metadata, type, title and the server-side size limit', async () 
 });
 
 test('configuration, signing and database failures never return a success URL or internal error', async () => {
-  for (const overrides of [{ r2Config: () => null }, { r2Config: () => ({ bucket: 'helixly-clips' }) }, { sign: async () => { throw new Error('internal-signing-details'); } }, { pool: { query: async () => { throw new Error('internal-database-details'); } } }]) {
+  for (const overrides of [{ env: {} }, { env: { R2_PUBLIC_URL: 'http://invalid.test' } }, { r2Config: () => null }, { r2Config: () => ({ bucket: 'helixly-clips' }) }, { sign: async () => { throw new Error('internal-signing-details'); } }, { pool: { query: async () => { throw new Error('internal-database-details'); } } }]) {
     const f = setup(overrides); await f.handle(f.request, f.res);
     assert.equal(f.res.statusCode, 503);
     assert.equal(f.res.body.url, undefined);

@@ -10,7 +10,9 @@ without editing the archive or adding a Next.js route that would not be served.
 2. `POST /api/clips/presign` validates the account, title, media type and positive
    size (at most 5 GiB, matching the current browser). The existing per-citizen
    limiter is retained. It stores an expiring, account-owned `direct-put` receipt
-   in the existing `r2_clip_uploads` table and returns `{ url, uploadUrl, key }` with identical one-hour PUT URL aliases.
+   in the existing `r2_clip_uploads` table and returns `{ url, uploadUrl, key }` where `uploadUrl` is the one-hour signed PUT URL and `url` is the public
+   display URL from `getPublicUrl(key)`. The browser PUTs only to `uploadUrl`;
+   a display URL returned here is not proof that the object exists or is published.
    JSON initiation includes filename, contentType, size, title and ownerId; the
    authenticated server session, never the ownerId alone, determines ownership.
    The older expectedOwnerId field remains supported and fenced for compatibility.

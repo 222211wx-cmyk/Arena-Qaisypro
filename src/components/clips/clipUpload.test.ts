@@ -35,7 +35,7 @@ function setup({ me = 7, putStatus = 200, hold = false, confirm = { ok: true, cl
     fetches.push({ url, body, init });
     const json = (data: unknown) => new Response(JSON.stringify(data), { status: 200, headers: { "Content-Type": "application/json" } });
     if (url.endsWith("api/auth/me")) return json({ id: me, username: "citizen" });
-    if (url.endsWith("api/clips/presign")) return json({ url: "https://signed.example/put", key: "clips/abc" });
+    if (url.endsWith("api/clips/presign")) return json({ uploadUrl: "https://signed.example/put", url: "https://public.example/clip.mp4", key: "clips/abc" });
     if (url.endsWith("api/clips/confirm")) return json(confirm);
     return new Response("{}", { status: 404 });
   }));

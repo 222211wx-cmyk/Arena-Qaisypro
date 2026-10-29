@@ -100,13 +100,13 @@ export async function uploadClip(
     filename: file.name, title: metadata.title, contentType, size: file.size,
     durationSec: metadata.durationSec, ownerId: owner,
   }, signal);
-  if (typeof session?.url !== "string" || typeof session?.key !== "string") {
+  if (typeof session?.uploadUrl !== "string" || typeof session?.key !== "string") {
     throw new Error("تعذر بدء الرفع — حاول مجدداً");
   }
-  const signed = new URL(session.url);
+  const signed = new URL(session.uploadUrl);
   if (signed.protocol !== "https:" || signed.username || signed.password) throw new Error("رابط الرفع غير صالح");
   onProgress(0, 0, file.size);
-  await putOriginal(session.url, file, signal, onProgress);
+  await putOriginal(session.uploadUrl, file, signal, onProgress);
   signal.throwIfAborted();
   const body = await postJson(`${import.meta.env.BASE_URL}api/clips/confirm`, {
     key: session.key, ownerId: owner,
