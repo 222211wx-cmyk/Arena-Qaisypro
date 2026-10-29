@@ -28,15 +28,16 @@ type Msg = {
   empireNote?: boolean;
   ownerDomain?: string;
   signature?: string;
-  map?: {location:string; searchUrl:string; imageUrl:string|null; attribution:string; notice:string} | null;
+  map?: {location:string; searchUrl:string; imageUrl:string|null; tileFallback?:{url:string;x:number;y:number}|null; attribution:string; notice:string} | null;
 };
 
 function MapCard({map}:{map:NonNullable<Msg['map']>}) {
-  const [failed,setFailed]=useState(false);
+  const [imageState,setImageState]=useState(0);
   return <figure className="ameeq-map">
-    {map.imageUrl&&!failed&&<img loading="lazy" referrerPolicy="no-referrer" src={map.imageUrl} alt={`خريطة ${map.location}`} onError={()=>setFailed(true)} />}
+    {map.imageUrl&&imageState===0&&<img loading="lazy" referrerPolicy="no-referrer" src={map.imageUrl} alt={`خريطة ${map.location}`} onError={()=>setImageState(map.tileFallback?1:2)} />}
+    {imageState===1&&map.tileFallback&&<div className="ameeq-map-tile"><img loading="lazy" referrerPolicy="no-referrer" src={map.tileFallback.url} alt={`خريطة ${map.location}`} onError={()=>setImageState(2)} /><span aria-hidden="true" style={{left:`${map.tileFallback.x}%`,top:`${map.tileFallback.y}%`}}>📍</span></div>}
     <figcaption>{map.attribution} {map.notice}</figcaption>
-    {failed&&<p>تعذر تحميل صورة الخريطة؛ افتح رابط Google Maps.</p>}
+    {imageState===2&&<p>تعذر تحميل صورة الخريطة؛ افتح رابط Google Maps.</p>}
     <a href={map.searchUrl} target="_blank" rel="noopener noreferrer">🗺️ افتح {map.location} في Google Maps</a>
   </figure>;
 }

@@ -346,3 +346,5 @@ body {
 .ameeq-map figcaption { font-size:12px; }
 #ameeq-audio-player { flex:none; display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
 .ameeq-tools select { max-width:100%; }
+.ameeq-map-tile { position:relative; width:256px; max-width:100%; }
+.ameeq-map-tile span { position:absolute; transform:translate(-50%,-100%); font-size:24px; }

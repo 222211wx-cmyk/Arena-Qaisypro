@@ -27,7 +27,7 @@ export async function mapForRequest(input, requestedLocation, env, fetchImpl) {
   const label = location || '31.9310,-4.4250';
   const coordinate = label.match(/^(-?\d{1,2}(?:\.\d+)?),\s*(-?\d{1,3}(?:\.\d+)?)$/);
   const validCoords = coordinate && Math.abs(Number(coordinate[1]))<=90 && Math.abs(Number(coordinate[2]))<=180;
-  const map = { location: label, searchUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(label)}`, imageUrl:null, attribution:'', notice:location?'':'نقطة عامة مؤقتة للرشيدية، ليست عنوان مقر Arena Qaisypro.' };
+  const map = { location: label, searchUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(label)}`, imageUrl:null, tileFallback:null, attribution:'', notice:location?'':'نقطة عامة مؤقتة للرشيدية، ليست عنوان مقر Arena Qaisypro.' };
   const key = env.GOOGLE_MAPS_API_KEY || env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
   if (key) {
     try {
@@ -43,6 +43,12 @@ export async function mapForRequest(input, requestedLocation, env, fetchImpl) {
   if (validCoords) {
     const coords=`${Number(coordinate[1])},${Number(coordinate[2])}`;
     map.imageUrl=`https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(coords)}&zoom=14&size=600x400&markers=${encodeURIComponent(coords)},red`;
+    // Secondary provider path if the public static-map renderer fails.
+    const z=14, n=2**z, lat=Math.max(-85.0511,Math.min(85.0511,Number(coordinate[1])));
+    const x=(Number(coordinate[2])+180)/360*n;
+    const rad=lat*Math.PI/180;
+    const y=(1-Math.asinh(Math.tan(rad))/Math.PI)/2*n;
+    map.tileFallback={url:`https://tile.openstreetmap.org/${z}/${Math.min(n-1,Math.floor(x))}/${Math.min(n-1,Math.floor(y))}.png`,x:(x-Math.floor(x))*100,y:(y-Math.floor(y))*100};
     map.attribution='© OpenStreetMap contributors';
   } else map.notice='افتح البحث في Google Maps لتحديد المكان، أو أرسل إحداثيات latitude,longitude لعرض صورة بلا مفتاح Google.';
   return map;
