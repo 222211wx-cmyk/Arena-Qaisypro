@@ -132,3 +132,29 @@ it('limits repeated failed attempts per warm instance', async () => {
   for (let i = 0; i < 20; i++) { const res = response(); await authHandler('login')(req, res); expect(res.statusCode).toBe(401); }
   const res = response(); await authHandler('login')(req, res); expect(res.statusCode).toBe(429); expect(res.headers['Retry-After']).toBe('900');
 });
+
+it.each(['  PLAYER@example.test  ', "player' OR 1=1 --"])('binds email or username as one parameter: %s', async identifier => {
+  const original = query.getMockImplementation()!;
+  query.mockImplementation((sql: string, ...args: any[]) => {
+    if (sql.includes('LOWER(username)')) {
+      expect(sql).toContain('WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1)');
+      expect(sql).toContain('ORDER BY id LIMIT 2');
+      expect(args[0]).toEqual([identifier.trim()]);
+      return { rows: [{ ...user }] };
+    }
+    return original(sql, ...args);
+  });
+  const res = response();
+  await authHandler('login')(request({ username: identifier, password: 'correct-password' }), res);
+  expect(res.statusCode).toBe(200);
+  expect(res.body.username).toBe('Spieler');
+  expect(res.body).not.toHaveProperty('email');
+});
+it('rejects an identifier matching one account email and another account username', async () => {
+  query.mockResolvedValueOnce({ rows: [{ ...user }, { ...user, id: 8, username: 'player@example.test' }] });
+  const res = response();
+  await authHandler('login')(request({ username: 'player@example.test', password: 'correct-password' }), res);
+  expect(res.statusCode).toBe(401);
+  expect(connect).not.toHaveBeenCalled();
+  expect(res.headers['Set-Cookie']).toBeUndefined();
+});
