@@ -273,3 +273,64 @@ body {
   background-color: #000;
   background-image: none;
 }
+
+/* One shared 56px bar, including history: no stacked brand/search/tool rows. */
+.header-imperial { height:56px; min-height:56px; padding:0 16px; display:flex; align-items:center; gap:12px; background:hsl(var(--background)); border-bottom:1px solid hsl(var(--border)); }
+.arena-topbar .arena-history button { width:36px; min-width:36px; padding:0; }
+.arena-topbar .arena-history span { display:none; }
+.arena-navbar { flex:1; min-width:0; }
+.arena-navbar-row { display:flex; align-items:center; gap:16px; height:55px; }
+.arena-brand img { width:32px; height:32px; }
+.arena-brand span.text-xl { font-size:16px; }
+.arena-brand span.text-xs { font-size:9px; }
+.arena-search { flex:1; min-width:80px; max-width:480px; margin-inline:auto; }
+.arena-utilities { margin-inline-start:auto; }
+.arena-install-help { position:absolute; top:56px; inset-inline-end:0; background:hsl(var(--card)); border:1px solid hsl(var(--border)); max-width:min(440px,100vw); }
+.ameeq-route { height:calc(100vh - 56px); height:calc(100dvh - 56px); min-height:0; overflow:hidden; animation:none; }
+.main-empire { height:100%; width:100%; max-width:100%; display:grid; grid-template-columns:240px minmax(0,1fr) 320px; grid-template-rows:minmax(0,1fr); overflow:hidden; direction:ltr; }
+.empire-sections { grid-column:1; grid-row:1; padding:16px; overflow-y:auto; border-inline-end:1px solid hsl(var(--border)); }
+.empire-sections a { display:flex; align-items:center; min-height:44px; padding:8px; border-radius:8px; }
+.empire-sections a:hover { background:hsl(var(--secondary)); }
+.ameeq-panel { grid-column:2; grid-row:1; height:100%; min-height:0; min-width:0; display:flex; flex-direction:column; }
+.ameeq-title { height:56px; flex:none; padding:6px 16px; border-bottom:1px solid hsl(var(--border)); background:hsl(var(--card)); }
+.ameeq-title h1 { font-size:18px; font-weight:700; margin:0; }
+.ameeq-title p { font-size:11px; color:hsl(var(--muted-foreground)); }
+.ameeq-tools { grid-column:3; grid-row:1; padding:16px; overflow-y:auto; font-size:13px; border-inline-start:1px solid hsl(var(--border)); }
+.ameeq-tools p { margin-block:10px; }
+.ameeq-tools a { color:hsl(var(--primary)); }
+.ameeq-tools input { max-width:100%; background:hsl(var(--muted)); padding:8px; }
+.btn-imperial { min-height:44px; padding:8px 12px; border:1px solid hsl(var(--border)); border-radius:8px; background:hsl(var(--secondary)); cursor:pointer; }
+.btn-imperial:disabled { opacity:.5; cursor:wait; }
+.ameeq-tools .btn-imperial { width:100%; margin-block:4px; }
+.ameeq-tool-results { max-height:280px; overflow:auto; overflow-wrap:anywhere; }
+.ameeq-composer { display:flex; flex-wrap:wrap; gap:8px; padding:12px; flex:none; background:hsl(var(--card)); padding-bottom:max(12px,env(safe-area-inset-bottom)); }
+.ameeq-composer input { min-width:0; flex:1; padding:12px; border-radius:8px; background:hsl(var(--muted)); }
+.ameeq-mobile-tools { display:none; }
+@media(max-width:1100px) {
+ .main-empire { grid-template-columns:190px minmax(0,1fr) 260px; }
+ .header-imperial { gap:6px; padding:0 8px; }
+ .arena-navbar-row { gap:8px; }
+}
+@media(max-width:850px) {
+ .arena-search { display:none; }
+ .main-empire { display:flex; flex-direction:column; }
+ .ameeq-panel { flex:1; width:100%; }
+ .empire-sections,.ameeq-tools { display:none; }
+ .main-empire.tools-open .ameeq-tools { display:block; max-height:40dvh; flex:none; border-bottom:1px solid hsl(var(--border)); }
+ .ameeq-mobile-tools { display:inline-flex; margin-inline-start:auto; }
+ .ameeq-title { display:flex; align-items:center; gap:8px; }
+ .ameeq-composer { padding:8px; flex-wrap:wrap; }
+ .ameeq-composer input { flex-basis:55%; }
+ .ameeq-tools .mobile-sections { display:flex; flex-wrap:wrap; gap:8px; }
+}
+@media(min-width:851px) { .mobile-sections { display:none; } }
+@media(max-width:600px) {
+ .arena-utilities button span,.arena-utilities a span { display:none; }
+ .arena-utilities button,.arena-utilities a { padding-inline:6px; }
+ .arena-brand img { display:none; }
+ .arena-brand span.text-xl { font-size:13px; }
+ .arena-navbar-row { gap:4px; }
+ .header-imperial { gap:4px; padding:0 6px; }
+}
+
+.ameeq-composer > span { flex-basis:100%; color:hsl(var(--muted-foreground)); }

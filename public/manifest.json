@@ -2,7 +2,7 @@
   "name": "ARENA",
   "short_name": "ARENA",
   "description": "ARENA — Play. Compete. Rise. The sovereign play-to-earn gaming and voting platform.",
-  "start_url": "./lite",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#050505",

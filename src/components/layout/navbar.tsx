@@ -28,9 +28,9 @@ export function Navbar() {
   };
 
   return (
-    <header dir={lang === "ar" ? "rtl" : "ltr"} className="sticky top-0 z-50 border-b border-border bg-background text-foreground">
-      <div className="mx-auto flex max-w-2xl flex-col gap-2 px-3 py-2">
-        <div className="text-center">
+    <header dir={lang === "ar" ? "rtl" : "ltr"} className="arena-navbar bg-background text-foreground">
+      <div className="arena-navbar-row">
+        <div className="arena-brand">
           <Link href="/" dir="ltr" data-testid="link-brand-home" aria-label={UI_TEXT.home[lang]}
             className="inline-flex items-center gap-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md">
             <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" width={44} height={44} className="h-11 w-11 shrink-0" />
@@ -40,7 +40,7 @@ export function Navbar() {
             </span>
           </Link>
         </div>
-        <form role="search" aria-label={UI_TEXT.search[lang]} className="relative w-full"
+        <form role="search" aria-label={UI_TEXT.search[lang]} className="arena-search relative"
           onSubmit={event => {
             event.preventDefault();
             const query = searchQuery.trim();
@@ -55,7 +55,7 @@ export function Navbar() {
             </Button>
           </div>
         </form>
-        <nav aria-label={UI_TEXT.utilities[lang]} className="flex items-center justify-center gap-1">
+        <nav aria-label={UI_TEXT.utilities[lang]} className="arena-utilities flex items-center justify-center gap-1">
           {!onHome && (
             <Button variant="ghost" size="sm" asChild>
               <Link href="/" data-testid="nav-directory" aria-label={UI_TEXT.sections[lang]}>
@@ -100,7 +100,7 @@ export function Navbar() {
         </nav>
       </div>
       {installHelp && (
-        <div role="status" className="mx-auto flex max-w-7xl items-center gap-2 px-3 pb-2 text-sm">
+        <div role="status" className="arena-install-help flex items-center gap-2 p-3 text-sm">
           <span>{installHelp}</span>
           <Button variant="ghost" size="sm" onClick={() => setInstallHelp(null)}
             aria-label={installText(lang, "dismiss")}>×</Button>

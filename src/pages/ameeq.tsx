@@ -9,6 +9,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { boundedSnapshot, clearAmeeq, languageOf, loadAmeeq, mapsLink, offlineAnswer, saveAmeeq, type Snapshot } from "@/lib/ameeq-light";
 import { useLang } from "@/contexts/LangContext";
 
+import { startAmeeqSpeech, type Recognition } from '@/lib/ameeq-speech';
+
+const DEPARTMENTS = [
+  ['Compétitions', '/games'], ['Social', '/social'], ['Business', '/market'],
+  ['Éducation', '/learn'], ['Archon DNA', '/genome'], ['Stream & Live', '/clips'],
+] as const;
+const TOOLS = [['نبض', '/pulse'], ['GDNA AI', '/chat'], ['المركز الرقمي', '/hub'], ['النواة العصبية', '/neural-core']] as const;
+const appLink = (path: string) => `${import.meta.env.BASE_URL.replace(/\/$/, '')}${path}`;
+
 const EMPLOYEE_NAME = "Ameeq AI";
 const OWNER = "Arena Qaisypro";
 const EMPLOYEE_ID = "EMP-001";
@@ -55,6 +64,34 @@ export default function AmeeqPage() {
   const [busy, setBusy] = useState(false);
   const [report, setReport] = useState<CouncilReport | null>(null);
   const [showReport, setShowReport] = useState(false);
+  const [mobileTools, setMobileTools] = useState(false);
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef<Recognition | null>(null);
+  const busyRef = useRef(false);
+  const [toolResults, setToolResults] = useState<{kind:'clips'|'citizens'; items:{id:number;title?:string;username:string}[]} | null>(null);
+  const [toolNotice, setToolNotice] = useState('');
+  const toolRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => { recognitionRef.current?.abort(); toolRequest.current?.abort(); }, []);
+  async function showTool(kind:'clips'|'citizens') {
+    toolRequest.current?.abort();
+    const controller = new AbortController(); toolRequest.current=controller;
+    setToolResults(null); setToolNotice('جار تحميل البيانات الحية…');
+    try {
+      const response=await fetch(api(kind==='clips'?'/api/clips/feed?limit=20':'/api/citizens?sort=xp&limit=50'),{credentials:'include',signal:controller.signal});
+      if(!response.ok)throw new Error('tool');
+      const data=await response.json();
+      const rows=kind==='clips'?data.clips:data.citizens;
+      if(!Array.isArray(rows))throw new Error('shape');
+      setToolResults({kind,items:rows.slice(0,kind==='clips'?20:50).map(row=>({id:row.id,title:row.title,username:row.username}))});
+      setToolNotice(kind==='clips'?'معلومات حتى 20 كليب؛ فتح الفيديو يحتاج اتصالاً.':'المواطنون من الدليل العام؛ لا نثبت عدد الحسابات مسبقاً.');
+    }catch { if(!controller.signal.aborted)setToolNotice('تعذر تحميل الدليل الآن؛ جرّب الرابط المباشر أو عاود المحاولة.'); }
+  }
+  function startMic() {
+    if(listening){recognitionRef.current?.abort();setListening(false);return;}
+    if(busyRef.current)return;
+    setListening(true);
+    recognitionRef.current=startAmeeqSpeech(text=>{setInput(text);void sendCommand(text);},setCacheNotice,()=>setListening(false));
+  }
   const chatRef = useRef<HTMLDivElement>(null);
 
   useEffect(()=>{
@@ -76,6 +113,7 @@ export default function AmeeqPage() {
     return ()=>{active=false;};
   },[user?.id,loading]);
   useEffect(()=>subscribeAccountChanges(()=>{
+    recognitionRef.current?.abort(); toolRequest.current?.abort(); setToolResults(null); setToolNotice('');
     requestEpoch.current++;cacheOwner.current=null;setCacheEnabled(false);setMessages([{from:'ai',text:copy.greeting}]);
     setSnapshot({turns:[],clips:[],citizens:[],updatedAt:Date.now()});
     try{localStorage.removeItem('ameeq-offline-owner');}catch{}
@@ -127,9 +165,10 @@ export default function AmeeqPage() {
     chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  async function sendCommand() {
-    const cmd = input.trim();
-    if (!cmd || busy) return;
+  async function sendCommand(spoken?: string) {
+    const cmd = (spoken ?? input).trim();
+    if (!cmd || busyRef.current) return;
+    busyRef.current=true;
     if(/خريط|فين|maps?|carte|where.*Arena/iu.test(cmd))setToolsOpen(true);
     setMessages((m) => [...m, { from: "user", text: cmd }]);
     setInput("");
@@ -138,7 +177,7 @@ export default function AmeeqPage() {
     const epochAtStart=requestEpoch.current;
     if(!navigator.onLine){
       const answer=offlineAnswer(cmd,snapshot);const at=Date.now();
-      setMessages(m=>[...m,{from:'ai',text:answer}]);persist([...snapshot.turns,{from:'user',text:cmd,at},{from:'ai',text:answer,at}]);setBusy(false);return;
+      setMessages(m=>[...m,{from:'ai',text:answer}]);persist([...snapshot.turns,{from:'user',text:cmd,at},{from:'ai',text:answer,at}]);setBusy(false);busyRef.current=false;return;
     }
     try {
       const res = await fetch(api("/api/ameeq"), {
@@ -170,30 +209,31 @@ export default function AmeeqPage() {
       if(!navigator.onLine){const answer=offlineAnswer(cmd,snapshot);setMessages(m=>[...m,{from:'ai',text:answer}]);return;}
       setMessages((m) => [...m, { from: "ai", text: de("⚠️ الموظف مشغول حالياً. عاود من بعد.", "⚠️ Der Mitarbeiter ist gerade beschäftigt. Bitte versuche es später erneut.") }]);
     } finally {
-      setBusy(false);
+      setBusy(false);busyRef.current=false;
     }
   }
 
   return (
-    <div dir={lang === "ar" ? "rtl" : "ltr"} lang={lang} style={{
-      background: "hsl(var(--background))", color: "hsl(var(--foreground))", fontFamily: "'Tajawal', sans-serif",
-      margin: 0, display: "flex", flexDirection: "column", height: "calc(100vh - 115px)", minHeight: 420,
-    }}>
-      <header style={{ background: "hsl(var(--card))", padding: 15, textAlign: "center", borderBottom: "2px solid hsl(var(--primary))" }}>
-        <div style={{ fontSize: 11, color: "hsl(var(--primary))" }}>
-           🏛️ {de("موظف حكومي رقم", "Regierungsmitarbeiter Nr.")} {EMPLOYEE_ID} | {de("تابع لـ", "zugehörig zu")} {OWNER}
-        </div>
-        <h1 style={{ margin: "6px 0 0" }}>👑 {EMPLOYEE_NAME}</h1>
-        <div style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", marginTop: 4 }}>
-           {de("الحاكم الخارجي السيادي — رئيس مجلس الذكاء الإمبراطوري", "Souveräner externer Statthalter — Vorsitzender des Imperialen Geheimdienstrats")}
-        </div>
-      </header>
-
-      <section aria-label="Ameeq capabilities" style={{padding:12,borderBottom:'1px solid hsl(var(--border))',fontSize:12}}>
-        <strong>{online?'متصل — الذكاء حسب توفر المزود':'Offline — محفوظ وإرشادات فقط، بلا نموذج'}</strong>
+    <div className={`main-empire ${mobileTools?'tools-open':''}`}>
+      <aside className="empire-sections" dir={lang === 'ar' ? 'rtl' : 'ltr'} aria-label="الأقسام الستة">
+        <h2>أقسام Arena Qaisypro</h2>
+        {DEPARTMENTS.map(([label,path])=><a key={path} href={appLink(path)}>{label} ↗</a>)}
+        <hr />
+        {TOOLS.map(([label,path])=><a key={path} href={appLink(path)}>{label} ↗</a>)}
+        <a href={appLink('/citizens')}>دليل المواطنين</a>
+      </aside>
+      <section className="ameeq-tools" dir={lang === 'ar' ? 'rtl' : 'ltr'} aria-label="Ameeq capabilities">
+        <strong>{online?'متصل — رد محلي مع AI اختياري':'Offline — محفوظ وإرشادات فقط، بلا نموذج'}</strong>
+        <h2>أدوات المواطن</h2>
+        <div className="mobile-sections">{[...DEPARTMENTS,...TOOLS].map(([label,path])=><a key={path} href={appLink(path)}>{label} ↗</a>)}</div>
+        <button id="clip-btn" className="btn-imperial" onClick={()=>void showTool('clips')}>الكليبسز — معلومات حتى 20</button>
+        <button id="citoyens-btn" className="btn-imperial" onClick={()=>void showTool('citizens')}>المواطنون — الدليل الحي</button>
+        <a href={appLink('/clips')}>فتح الكليبسز</a> · <a href={appLink('/citizens')}>فتح دليل المواطنين</a>
+        {toolNotice&&<p role="status">{toolNotice}</p>}
+        {toolResults&&<ul className="ameeq-tool-results">{toolResults.items.map(item=><li key={item.id}><a href={appLink(toolResults.kind==='clips'?`/clips/${item.id}`:`/u/${encodeURIComponent(item.username)}`)}>{item.title||item.username}</a></li>)}</ul>}
         <p>حفظ اختياري على هذا الجهاز: آخر 50 سؤالاً وجواباً (100 رسالة كحد أقصى)، 20 كليب (معلومات فقط)، و10 أسماء عامة من أصحاب الكليبسز. ليس فيديوهات أو رسائل خاصة.</p>
-        {user&&!cacheEnabled&&<button onClick={enableCache}>أوافق على الحفظ المحلي وتجهيز Offline</button>}
-        {cacheEnabled&&<button onClick={forgetCache}>مسح المحفوظ المحلي</button>}
+        {user&&!cacheEnabled&&<button id="offline-btn" className="btn-imperial" onClick={enableCache}>أوافق على الحفظ المحلي وتجهيز Offline</button>}
+        {cacheEnabled&&<button id="offline-btn" className="btn-imperial" onClick={forgetCache}>مسح المحفوظ المحلي</button>}
         {!user&&!cacheEnabled&&<span>سجّل الدخول لتفعيل حفظ معزول لحسابك.</span>}
         {cacheNotice&&<p role="status">{cacheNotice}</p>}
         <details open={toolsOpen} onToggle={e=>setToolsOpen(e.currentTarget.open)}><summary>الخريطة والصوت والمكالمات</summary>
@@ -206,6 +246,12 @@ export default function AmeeqPage() {
           <p>لا تبدأ مكالمة ولا ميكروفون تلقائياً. Firebase وAgora وExpo حسب إعدادات الخدمة والصلاحيات؛ بلا ادعاء تبديل الشبكات عند انقطاع الإنترنت.</p>
         </details>
       </section>
+      <div className="ameeq-panel" dir={lang === 'ar' ? 'rtl' : 'ltr'} lang={lang}>
+      <header className="ameeq-title">
+        <div><h1>👑 {EMPLOYEE_NAME} <small>{EMPLOYEE_ID}</small></h1><p>{OWNER} — رئيس مجلس الذكاء الإمبراطوري</p></div>
+        <button className="btn-imperial ameeq-mobile-tools" aria-expanded={mobileTools} onClick={()=>setMobileTools(v=>!v)}>الأدوات والأقسام</button>
+      </header>
+      <p className="px-3 text-xs" role="status">{cacheNotice}</p>
       {report && (
         <div style={{ background: "#0f0d05", borderBottom: "1px solid #33280a", padding: "10px 16px" }}>
           <button onClick={() => setShowReport(s => !s)}
@@ -236,7 +282,7 @@ export default function AmeeqPage() {
         </div>
       )}
 
-      <div ref={chatRef} style={{ flex: 1, overflowY: "auto", padding: 20 }}>
+      <div ref={chatRef} role="log" aria-label="محادثة Ameeq" aria-live="polite" style={{ flex: 1, minHeight:0, overflowY: "auto", padding: 16 }}>
         {messages.map((msg, i) => (
           <div key={i} style={{
             margin: "10px 0", padding: "12px 18px", borderRadius: 12, maxWidth: "80%",
@@ -276,23 +322,16 @@ export default function AmeeqPage() {
         )}
       </div>
 
-      <footer style={{ display: "flex", padding: 15, background: "hsl(var(--card))" }}>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") sendCommand(); }}
-          placeholder={copy.placeholder}
-          maxLength={500}
-          style={{ flex: 1, padding: 14, borderRadius: 10, border: "none", background: "hsl(var(--muted))", color: "hsl(var(--foreground))", outline: "none" }}
-        />
-        <button
-          onClick={sendCommand}
-          disabled={busy}
-          style={{ padding: "14px 25px", marginRight: 10, borderRadius: 10, border: "none", background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))", fontWeight: "bold", cursor: "pointer", opacity: busy ? 0.6 : 1 }}
-        >
-          {copy.send}
-        </button>
+      <footer className="ameeq-composer">
+        <input id="ameeq-input" aria-label="سؤال Ameeq" value={input}
+          onChange={e=>setInput(e.target.value)}
+          onKeyDown={e=>{if(e.key==='Enter'&&!e.nativeEvent.isComposing)void sendCommand();}}
+          placeholder={copy.placeholder} maxLength={500} />
+        <button id="send-btn" className="btn-imperial" onClick={()=>void sendCommand()} disabled={busy||!input.trim()}>{copy.send}</button>
+        <button id="mic-btn" className="btn-imperial" aria-pressed={listening} disabled={busy} onClick={startMic}>{listening?'⏹ إيقاف':'🎤 ميكروفون'}</button>
+        <span className="text-xs w-full">بالضغط على الميكروفون توافق على خدمة التعرف الصوتي للمتصفح، وقد تعالج الصوت عبر الإنترنت؛ النص يُرسل لـAmeeq.</span>
       </footer>
+      </div>
     </div>
   );
 }

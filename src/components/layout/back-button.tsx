@@ -15,7 +15,7 @@ export function BackButton() {
   const ForwardIcon = lang === "ar" ? ArrowLeft : ArrowRight;
   return (
     <nav dir={lang === "ar" ? "rtl" : "ltr"} aria-label={`${label} / ${forwardLabel}`}
-      className="flex shrink-0 items-center gap-2 border-b border-border bg-background px-3 py-1">
+      className="arena-history flex shrink-0 items-center gap-1 bg-background">
     <Button
       type="button"
       variant="outline"
@@ -30,12 +30,12 @@ export function BackButton() {
       }}
     >
       <BackIcon className="h-4 w-4" aria-hidden="true" />
-      {label}
+      <span>{label}</span>
     </Button>
     <Button type="button" variant="outline" size="sm" className="gap-2"
       aria-label={forwardLabel} title={forwardLabel} onClick={navigateForward}>
       <ForwardIcon className="h-4 w-4" aria-hidden="true" />
-      {forwardLabel}
+      <span>{forwardLabel}</span>
     </Button>
     </nav>
   );
