@@ -63,13 +63,29 @@ export type NotificationItem = {
   createdAt?: string | null;
 };
 
+export class ClipFeedError extends Error {
+ constructor(public status:number, public retryAfter=0, message='Clips request failed'){super(message);}
+}
+let feedRetryAt=0;
+export function clipFailureMessage(error:unknown):string {
+ if(error instanceof ClipFeedError){
+  if(error.status===429)return `Trop de requêtes (HTTP 429). Réessayez dans ${Math.max(1,error.retryAfter)} secondes — ce n’est pas un fil vide.`;
+  if(error.status===503)return 'Service Clips / base de données temporairement indisponible (HTTP 503). Le contenu n’a pas pu être vérifié. Réessayez.';
+  return `Chargement Clips refusé (HTTP ${error.status}). Réessayez ou contactez l’opérateur.`;
+ }
+ return 'Impossible de charger les Clips. Vérifiez la connexion puis réessayez.';
+}
+
 async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${BASE}api${path}`, {
     credentials: "include",
     cache: "no-store",
     signal,
   });
-  if (!response.ok) throw new Error(`Request failed (${response.status})`);
+  if (!response.ok) {
+    const seconds=Number(response.headers.get('retry-after'));
+    throw new ClipFeedError(response.status,Number.isFinite(seconds)&&seconds>0?Math.min(seconds,900):30);
+  }
   return (await response.json()) as T;
 }
 
@@ -90,6 +106,7 @@ export async function fetchFeed(
   opts: { before?: number | null; limit?: number; q?: string },
   signal?: AbortSignal,
 ): Promise<FeedResponse> {
+  if(Date.now()<feedRetryAt)throw new ClipFeedError(429,Math.ceil((feedRetryAt-Date.now())/1000));
   const params = new URLSearchParams();
   if (opts.before != null) params.set("before", String(opts.before));
   params.set("limit", String(Math.min(Math.max(opts.limit ?? 5, 1), 6)));
@@ -110,6 +127,9 @@ export async function fetchFeed(
       nextBefore: data.nextBefore ?? null,
       degraded: Boolean(data.degraded),
     };
+  } catch(error) {
+    if(error instanceof ClipFeedError && error.status===429)feedRetryAt=Date.now()+error.retryAfter*1000;
+    throw error;
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", abort);

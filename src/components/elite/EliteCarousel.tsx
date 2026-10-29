@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Crown, ArrowRight, Star } from "lucide-react";
@@ -20,7 +21,9 @@ import { GuestOfHonorCard } from "@/components/elite/GuestOfHonorCard";
  * (Adele, Guest of Honor, first). Built from DS Carousel + Card + Badge.
  */
 export function EliteCarousel() {
-  const profiles = getEliteCarousel();
+  const [dismissed,setDismissed]=useState<string[]>([]);
+  const profiles = getEliteCarousel().filter(profile=>!dismissed.includes(profile.slug));
+  const guest=profiles.find(isGuestOfHonor);
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-16" data-testid="elite-carousel">
@@ -48,9 +51,13 @@ export function EliteCarousel() {
         </Button>
       </motion.div>
 
+      {guest&&<div className="guest-spotlight" data-testid="guest-spotlight">
+        <button type="button" className="guest-dismiss" aria-label="Masquer Adele / إخفاء Adele" onClick={()=>setDismissed(values=>[...values,guest.slug])}>×</button>
+        <GuestOfHonorCard profile={guest} testId={`card-elite-${guest.slug}`} />
+      </div>}
       <Carousel opts={{ align: "center", loop: true }} className="w-full">
         <CarouselContent className="-ml-3">
-          {profiles.map((p, i) => (
+          {profiles.filter(p=>!isGuestOfHonor(p)).map((p, i) => (
             <CarouselItem
               key={p.slug}
               className={isGuestOfHonor(p)
@@ -72,6 +79,7 @@ export function EliteCarousel() {
                   transition={{ delay: (i % 4) * 0.06 }}
                   className="h-full"
                 >
+                  <button type="button" className="guest-dismiss-inline" aria-label={`Masquer ${p.name}`} onClick={event=>{event.preventDefault();event.stopPropagation();setDismissed(values=>[...values,p.slug]);}}>×</button>
                   <Card className="group h-full overflow-hidden border-border bg-card/60">
                     <CardContent className="flex h-full flex-col gap-3 p-3">
                       <div className="relative overflow-hidden rounded-xl border border-border/60 bg-gradient-to-br from-primary/15 to-background">

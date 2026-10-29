@@ -16,3 +16,8 @@ it('preserves DOM nodes, handlers and input values while applying and saving cor
  (document.getElementById('clone-correction') as HTMLInputElement).value='<b>Mon mot</b>';document.getElementById('clone-save')!.click();
  expect(button.textContent).toBe('<b>Mon mot</b>');expect(button.querySelector('b')).toBeNull();expect(cloneText('Password','fr')).toBe('<b>Mon mot</b>');
 });
+it('closes translation suggestions and clears a correction with one click',()=>{
+ mountCloneTranslation();document.getElementById('clone-toggle')!.click();
+ const input=document.getElementById('clone-correction') as HTMLInputElement;input.value='remove';document.getElementById('clone-clear')!.click();expect(input.value).toBe('');
+ document.getElementById('clone-close')!.click();expect((document.getElementById('clone-controls') as HTMLElement).hidden).toBe(true);
+});

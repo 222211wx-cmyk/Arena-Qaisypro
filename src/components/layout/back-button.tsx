@@ -10,7 +10,7 @@ export function BackButton() {
   const { lang } = useLang();
   useEffect(trackAppHistory, []);
   const label = ({ ar: "رجوع", en: "Back", fr: "Retour", es: "Volver", de: "Zurück" } as Record<string, string>)[lang] ?? "Back";
-  const forwardLabel = ({ ar: "أمام", en: "Forward", fr: "Suivant", es: "Adelante", de: "Vorwärts" } as Record<string, string>)[lang] ?? "Forward";
+  const forwardLabel = ({ ar: "أمام", en: "Forward", fr: "Devant", es: "Adelante", de: "Vorwärts" } as Record<string, string>)[lang] ?? "Forward";
   const BackIcon = lang === "ar" ? ArrowRight : ArrowLeft;
   const ForwardIcon = lang === "ar" ? ArrowLeft : ArrowRight;
   return (

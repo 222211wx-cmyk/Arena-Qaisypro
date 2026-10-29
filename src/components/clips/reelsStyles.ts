@@ -34,10 +34,11 @@ export function reelsShellCss(palette: Palette, space: string): string {
 
   /* ── Top bar ──────────────────────────────────────────────────────────── */
   .reels-topbar{
+    height:56px; min-height:56px;
     position:absolute;left:0;right:0;top:0;z-index:41;
     display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;
     gap:calc(${space} * 2);
-    padding:calc(var(--reels-top-safe) + ${space} * 3) calc(${space} * 3) calc(${space} * 3);
+    padding:0 calc(${space} * 3);
     background:linear-gradient(to bottom, var(--reels-scrim-strong), transparent);
     pointer-events:none;
   }
@@ -337,6 +338,7 @@ export function reelsShellCss(palette: Palette, space: string): string {
     position:absolute;inset:0;overflow:hidden;
     background:${palette.card};border:0;padding:0;cursor:pointer;
   }
+  .reels-grid-dismiss{position:absolute;top:6px;left:6px;z-index:3;background:#111;color:#fff}
   .reels-grid-cell img{width:100%;height:100%;object-fit:cover;display:block}
   .reels-grid-cell-fallback{
     position:absolute;inset:0;display:flex;align-items:center;justify-content:center;

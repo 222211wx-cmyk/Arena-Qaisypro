@@ -62,6 +62,10 @@ replaceOnce(`    if (req.session?.userId === revoked.userId) {
     await new Promise((resolve, reject) => req.session.save(error => error ? reject(error) : resolve()));
     res.json(ResetRecoveryPasswordResponse.parse({ success: true }));`);
 
+// Keep the existing DATABASE_URL only; TLS is explicit for hosted PostgreSQL.
+replaceOnce('pool = new Pool3({ connectionString });', 'pool = new Pool3({ connectionString, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5000 });');
+replaceOnce('error: "Clips feed is temporarily unavailable"', 'code: process.env.DATABASE_URL ? "CLIPS_DATA_UNAVAILABLE" : "DATABASE_URL_MISSING", error: process.env.DATABASE_URL ? "Clips data temporarily unavailable; retry later" : "DATABASE_URL is not configured for this deployment"');
+
 // Hosting must not create/drop/alter tables, bootstrap administrators or seed users.
 replaceOnce('if (!fs2.existsSync(uploadsDir)) fs2.mkdirSync(uploadsDir, { recursive: true });', '// Application filesystem is read-only on Vercel; do not create local uploads at startup.');
 replaceOnce('ensureLegalTable().catch(console.error);', '// Existing legal schema is preserved without startup DDL.');

@@ -14,3 +14,10 @@ it('allows section return paths and rejects external login redirects',()=>{
  expect(citizenReturnPath('?next=%2Fclips')).toBe('/clips');expect(citizenReturnPath('?next=%2Fcompetitions')).toBe('/competitions');
  for(const next of ['https://attacker.invalid','//attacker.invalid','/clips/../../login','/clips\\attacker'])expect(citizenReturnPath('?next='+encodeURIComponent(next))).toBeNull();
 });
+it('shows an explicit rate-limit message and honors Retry-After without another network request',async()=>{
+ const {clipFailureMessage}=await import('@/components/clips/reelsApi');
+ const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json({error:'throttled'},{status:429,headers:{'Retry-After':'10'}}));
+ let failure:unknown;try{await fetchFeed({});}catch(error){failure=error;}
+ expect(clipFailureMessage(failure)).toContain('HTTP 429');
+ await expect(fetchFeed({})).rejects.toMatchObject({status:429});expect(fetch).toHaveBeenCalledTimes(1);
+});
