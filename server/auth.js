@@ -98,7 +98,8 @@ export function authHandler(operation) {
         try { body = JSON.parse(body); } catch { return res.status(400).json({ error: 'Invalid JSON' }); }
       }
       if (operation === 'login') {
-        const username = typeof body?.username === 'string' ? body.username.trim() : '';
+        const identifier = typeof body?.username === 'string' && body.username.trim() ? body.username : body?.email;
+        const username = typeof identifier === 'string' ? identifier.trim() : '';
         const password = typeof body?.password === 'string' ? body.password : '';
         if (!username || username.length > 256 || !password || Buffer.byteLength(password) > 72) return res.status(400).json({ error: 'Valid username and password required' });
         const success = throttled(req);

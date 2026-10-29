@@ -1,0 +1,13 @@
+# Source is preserved in Git; only the original backend is exposed in this deployment.
+.git/
+node_modules/
+dist/
+.vercel/
+.original-backend/
+.env*
+!.env.example
+api/auth/
+api/clips/
+api/clip.ts
+api/not-found.js
+api/session.

@@ -3,3 +3,6 @@ dist/
 .vercel/
 .env*
 !.env.example
+
+# Generated from the original backend archive at build time
+.original-backend/
