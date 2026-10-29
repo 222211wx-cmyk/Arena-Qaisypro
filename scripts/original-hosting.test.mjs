@@ -19,14 +19,18 @@ test('original archive is unchanged and protection removes destructive startup',
   assert.ok(!runtime.includes('sessionStoreReady.then(() => prepareDevelopmentDatabase())'));
   assert.ok(runtime.includes('pruneSessionInterval: false'));
   assert.ok(runtime.includes('export default originalServer;'));
+  assert.ok(runtime.includes('spawn2(clipFfprobe.path, ['));
+  assert.ok(!runtime.includes('spawn2("ffprobe", ['));
   assert.ok(runtime.includes('LOWER(${usersTable.email}) = LOWER(${username}) OR LOWER(${usersTable.username}) = LOWER(${username})'));
   assert.ok(runtime.includes('req.body?.email'));
   assert.ok(runtime.includes('const existing = await db.select().from(usersTable).where(sql`LOWER(${usersTable.username}) = LOWER(${username})`).limit(1)'));
 });
 
-test('all original section route registrations remain byte-for-byte unchanged', () => {
+test('original routes remain unchanged apart from restoring direct clip presign', () => {
   const routes = s => s.match(/^(?:router\d*|app|app_default|adminRouter)\.(?:get|post|put|delete|patch|use)\(.*$/gm);
-  assert.deepEqual(routes(runtime), routes(original));
+  const added = 'router55.post("/clips/presign", createClipPresign({ pool, r2Config, resolveClipUploadType, clipDownloadExtension, validateClipDisplayTitle, ClipUploadError, logger }));';
+  assert.ok(routes(runtime).includes(added));
+  assert.deepEqual(routes(runtime).filter(route => route !== added), routes(original));
   const config = JSON.parse(readFileSync('vercel.json'));
   assert.deepEqual(config.rewrites[0], { source: '/api/:path*', destination: '/api/original' });
 });
@@ -44,6 +48,7 @@ test('production cold start and public HTTP route perform no DB queries or exter
     import http from 'node:http';
     import https from 'node:https';
     import fs from 'node:fs';
+    import { Readable } from 'node:stream';
     let externalAttempts = 0;
     registerHooks({ load(url, context, nextLoad) {
       const result = nextLoad(url, context);
@@ -51,7 +56,7 @@ test('production cold start and public HTTP route perform no DB queries or exter
         if (!String(result.source).includes('pool = new Pool3({ connectionString, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5e3 });')) throw new Error('SQL probe anchor missing');
         const source = String(result.source).replace('pool = new Pool3({ connectionString, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5e3 });',
           'pool = new Pool3({ connectionString, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5e3 }); pool.query = (sql) => { if(globalThis.__allowAmeeq) return globalThis.__ameeqQuery(sql); globalThis.__queries++; throw new Error("Unexpected SQL"); }; pool.connect = async () => { if(globalThis.__allowAmeeq) return {query:globalThis.__ameeqQuery,release(){}}; globalThis.__queries++; throw new Error("Unexpected DB connect"); };');
-        return { ...result, source };
+        return { ...result, source: source + '; globalThis.__clipPlayback = signClipPlayback; globalThis.__verifiedDuration = verifiedDuration;' };
       }
       return result;
     }});
@@ -70,6 +75,22 @@ test('production cold start and public HTTP route perform no DB queries or exter
     }
     syncBuiltinESMExports();
     const { default: server } = await import('./api/original.js');
+    const playback = await globalThis.__clipPlayback('r2:clips/original/7/probe.mp4');
+    if (playback.url !== 'https://media.example.test/clips/original/7/probe.mp4' || playback.urlExpiresAt !== null) throw new Error('Public R2 playback not wired');
+    // A real 61-second PCM container proves the packaged verifier can execute
+    // and seek through the production range bridge without any system ffprobe.
+    const dataBytes = 61 * 8000 * 2;
+    const wav = Buffer.alloc(44 + dataBytes);
+    wav.write('RIFF'); wav.writeUInt32LE(36 + dataBytes, 4); wav.write('WAVEfmt ', 8);
+    wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
+    wav.writeUInt32LE(8000, 24); wav.writeUInt32LE(16000, 28);
+    wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34);
+    wav.write('data', 36); wav.writeUInt32LE(dataBytes, 40);
+    const duration = await globalThis.__verifiedDuration({
+      async getMetadata() { return [{ size: wav.length }]; },
+      createReadStream(range) { return Readable.from([wav.subarray(range.start, range.end + 1)]); },
+    }, 'media');
+    if (duration !== 61) throw new Error('Packaged media probe failed: ' + duration);
     if (server.listening) throw new Error('Adapter must not own the listener');
     await new Promise(r => server.listen(0, '127.0.0.1', r));
     const result = await new Promise((resolve, reject) => {
@@ -103,7 +124,7 @@ test('production cold start and public HTTP route perform no DB queries or exter
     process.exit(0);
   `], {
     cwd: isolated, encoding: 'utf8', timeout: 20000,
-    env: { ...process.env, NODE_ENV: 'production', DATABASE_URL: 'postgresql://test.invalid/hosting-test', SESSION_SECRET: 'local-test-only-session-secret-not-production' }
+    env: { ...process.env, NODE_ENV: 'production', R2_PUBLIC_URL: 'https://media.example.test/', DATABASE_URL: 'postgresql://test.invalid/hosting-test', SESSION_SECRET: 'local-test-only-session-secret-not-production' }
   });
   rmSync(isolated, { recursive: true, force: true });
   assert.equal(probe.status, 0, probe.stdout + probe.stderr);

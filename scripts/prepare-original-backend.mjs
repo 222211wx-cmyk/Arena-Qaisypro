@@ -21,6 +21,25 @@ function replaceBlock(start, end, replacement) {
   runtime = runtime.slice(0, a) + replacement + runtime.slice(b);
 }
 
+// Restore the direct-upload endpoint used by the current Vite client. Keep the
+// archive intact and mount after its existing account fence and rate limiter.
+runtime = "import { createClipPresign, publicClipUrl } from './server/clip-r2.mjs';\n" + runtime;
+replaceOnce('router55.post("/clips/confirm", async (req, res) => {',
+  'router55.post("/clips/presign", createClipPresign({ pool, r2Config, resolveClipUploadType, clipDownloadExtension, validateClipDisplayTitle, ClipUploadError, logger }));\nrouter55.post("/clips/confirm", async (req, res) => {');
+// Publication must probe the actual media, even on hosts without system ffprobe.
+runtime = "import clipFfprobe from '@ffprobe-installer/ffprobe';\n" + runtime;
+replaceOnce('spawn2("ffprobe", [', 'spawn2(clipFfprobe.path, [');
+// Canonical bucket wins; retain compatibility for older hosting environments.
+replaceOnce('(process.env.R2_BUCKET_NAME || process.env.R2_BUCKET)?.trim()',
+  '(process.env.R2_BUCKET || process.env.R2_BUCKET_NAME)?.trim()');
+// Public media only: do not change the shared R2 signer used by private storage.
+replaceOnce('async function signClipPlayback(filename, request = fetch) {',
+  'async function signClipPlayback(filename, request = fetch) {\n  const publicUrl = publicClipUrl(filename);\n  if (publicUrl) return { url: publicUrl, urlExpiresAt: null };');
+replaceOnce('        res.setHeader("Content-Type", name.endsWith(".webp") ? "image/webp" : "image/jpeg");',
+  '        const publicUrl = publicClipUrl(name);\n        if (publicUrl) return res.set("Cache-Control", "no-store").redirect(307, publicUrl);\n        res.setHeader("Content-Type", name.endsWith(".webp") ? "image/webp" : "image/jpeg");');
+replaceOnce('        const file2 = clipFile(clip.object_name);',
+  '        const publicUrl = req.query.download !== "1" ? publicClipUrl(clip.object_name) : null;\n        if (publicUrl) return res.set("Cache-Control", "no-store").redirect(307, publicUrl);\n        const file2 = clipFile(clip.object_name);');
+
 // Ameeq enhancement: replace its generic answer after the original
 // input validation, moderation and rate limiter. All other routes stay original.
 runtime = "import { createAmeeqLocal } from './api/ameeq.js';\n" + runtime;
@@ -94,7 +113,7 @@ await build({
   outfile: resolve(output, 'runtime.mjs'),
   bundle: true, platform: 'node', format: 'esm', target: 'node22',
   banner: { js: "import { createRequire as hostingCreateRequire } from 'node:module'; globalThis.require = hostingCreateRequire(import.meta.url);" },
-  external: ['@aws-sdk/*', '@google-cloud/*', 'bcrypt', 'drizzle-orm', 'drizzle-orm/*', 'pg', 'undici', 'google-auth-library'],
+  external: ['@ffprobe-installer/*', '@aws-sdk/*', '@google-cloud/*', 'bcrypt', 'drizzle-orm', 'drizzle-orm/*', 'pg', 'undici', 'google-auth-library'],
 });
 // Keep the archived logging workers beside the generated bundle.
 for (const entry of archive.getEntries()) {
