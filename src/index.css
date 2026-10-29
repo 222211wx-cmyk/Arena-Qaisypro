@@ -286,7 +286,7 @@ body {
 .arena-search { flex:1; min-width:80px; max-width:480px; margin-inline:auto; }
 .arena-utilities { margin-inline-start:auto; }
 .arena-install-help { position:absolute; top:56px; inset-inline-end:0; background:hsl(var(--card)); border:1px solid hsl(var(--border)); max-width:min(440px,100vw); }
-.ameeq-route { height:calc(100vh - 56px); height:calc(100dvh - 56px); min-height:0; overflow:hidden; animation:none; }
+.ameeq-route { flex:none; height:calc(100vh - 56px); height:calc(100dvh - 56px); min-height:0; overflow:hidden; animation:none; }
 .main-empire { height:100%; width:100%; max-width:100%; display:grid; grid-template-columns:240px minmax(0,1fr) 320px; grid-template-rows:minmax(0,1fr); overflow:hidden; direction:ltr; }
 .empire-sections { grid-column:1; grid-row:1; padding:16px; overflow-y:auto; border-inline-end:1px solid hsl(var(--border)); }
 .empire-sections a { display:flex; align-items:center; min-height:44px; padding:8px; border-radius:8px; }
@@ -334,3 +334,10 @@ body {
 }
 
 .ameeq-composer > span { flex-basis:100%; color:hsl(var(--muted-foreground)); }
+
+@media(max-width:600px) {
+ .ameeq-title > div { min-width:0; flex:1; }
+ .ameeq-title h1 { font-size:16px; white-space:nowrap; }
+ .ameeq-title p { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+ .ameeq-mobile-tools { font-size:12px; max-width:130px; padding:6px; }
+}
