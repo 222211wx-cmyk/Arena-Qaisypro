@@ -17,6 +17,26 @@
       "destination": "/api/clip?id=:id"
     },
     {
+      "source": "/api/auth/login",
+      "destination": "/api/auth/login"
+    },
+    {
+      "source": "/api/auth/me",
+      "destination": "/api/auth/me"
+    },
+    {
+      "source": "/api/auth/logout",
+      "destination": "/api/auth/logout"
+    },
+    {
+      "source": "/api/auth/session",
+      "destination": "/api/auth/session"
+    },
+    {
+      "source": "/api/auth/verify",
+      "destination": "/api/auth/verify"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/not-found"
     },

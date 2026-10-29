@@ -48,7 +48,10 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
+    "@types/bcrypt": "^6.0.0",
+    "@types/cookie-signature": "^1.1.2",
     "@types/node": "^20.0.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.3",
@@ -88,7 +91,10 @@
     "@neondatabase/serverless": "^0.9.5",
     "@supabase/supabase-js": "^2.118.0",
     "agora-rtc-sdk-ng": "^4.24.7",
+    "bcrypt": "^6.0.0",
+    "cookie-signature": "^1.2.2",
     "drizzle-orm": "^0.31.4",
+    "pg": "^8.23.1",
     "tus-js-client": "^4.3.1"
   }
 }
