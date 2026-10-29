@@ -13,7 +13,7 @@ of inventing an identity.
 
 ## Retained protocol
 
-- Login takes **username**, password, and optional rememberMe, not an R2 email key.
+- Login takes **username** (an existing username or email), password, and optional rememberMe, not an R2 object key. The same identifier is compared case-insensitively against both columns; multiple matching accounts are rejected rather than choosing one.
 - `DATABASE_URL` connects to PostgreSQL `users`; bcrypt checks `password_hash`.
 - The response is the original numeric-id, top-level user profile expected by
   both AuthContext and Lite. Hashes, internal emails, credential epochs and session
@@ -63,3 +63,5 @@ never supply passwords through a PR or this document.
 - npm audit reports 13 existing dependency findings (including two critical
   development/test-tool findings). None concern the new bcrypt, pg or
   cookie-signature packages; unrelated runtime dependency versions were not upgraded.
+
+Email lookup does not create missing accounts or reset passwords. Only existing stored bcrypt credentials can authorize a session.

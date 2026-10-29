@@ -104,8 +104,8 @@ export function authHandler(operation) {
         const success = throttled(req);
         if (!success) { res.setHeader('Retry-After', '900'); return res.status(429).json({ error: 'Too many attempts; retry later' }); }
         const { pool, secret } = configuration();
-        const matches = await pool.query(`SELECT ${PUBLIC_COLUMNS}, password_hash, credential_epoch FROM users WHERE LOWER(username) = LOWER($1) ORDER BY id LIMIT 2`, [username]);
-        // Never choose arbitrarily among legacy case-insensitive duplicates.
+        const matches = await pool.query(`SELECT ${PUBLIC_COLUMNS}, password_hash, credential_epoch FROM users WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1) ORDER BY id LIMIT 2`, [username]);
+        // Fail closed for duplicates or an email/username collision across accounts.
         const user = matches.rows.length === 1 ? matches.rows[0] : null;
         let valid = false;
         if (user) { try { valid = await bcrypt.compare(password, user.password_hash); } catch { /* malformed hashes fail closed */ } }
