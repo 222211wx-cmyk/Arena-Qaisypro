@@ -1,5 +1,5 @@
 /** Compatibility defaults only. No background reminder is scheduled in mock mode. */
-export const recoveryReminderPreferenceKey = (userId: number) =>
+export const recoveryReminderPreferenceKey = (userId: number | string) =>
   `gdna.recovery-reminder.${userId}`;
 // Pure display policy recovered from the repository tests; never schedules work.
 export function isRecoveryCodeExpiringSoon(

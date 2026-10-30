@@ -9,7 +9,8 @@ const CallContext = createContext<CallCtx | null>(null);
 
 export function CallProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const call = useCall(user ?? null);
+  // Legacy call APIs require numeric participants; never coerce a text ID.
+  const call = useCall(user && typeof user.id === "number" ? {...user,id:user.id} : null);
 
   return (
     <CallContext.Provider value={call}>

@@ -1230,6 +1230,8 @@ export default function Messenger({
   onActiveRoomChange,
 }: MessengerProps) {
   const { user } = useAuth();
+  // Archived messaging uses integer foreign keys. Keep auth text IDs intact.
+  if (user && typeof user.id !== "number") return <p role="status">Messaging is unavailable for this account schema.</p>;
   // A citizen identity is a hard state boundary. Remounting the complete AMIS
   // surface on login/logout/account switch guarantees that no room, message,
   // unread count, draft, upload, or panel from the previous citizen survives
@@ -1237,7 +1239,7 @@ export default function Messenger({
   return (
     <IdentityBoundMessenger
       key={user ? `citizen:${user.id}` : "anonymous"}
-      user={user}
+      user={user && typeof user.id === "number" ? {...user,id:user.id} : null}
       variant={variant}
       initialRoomId={initialRoomId}
       onActiveRoomChange={onActiveRoomChange}
@@ -1247,7 +1249,7 @@ export default function Messenger({
 
 function IdentityBoundMessenger({ variant, user, initialRoomId, onActiveRoomChange }: {
   variant: MessengerVariant;
-  user: AuthUser | null;
+  user: (Omit<AuthUser,"id"> & {id:number}) | null;
   initialRoomId: number | null;
   onActiveRoomChange?: (roomId: number | null) => void;
 }) {

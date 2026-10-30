@@ -90,7 +90,7 @@ export interface CitizenDiscoveryFilters {
 export type CitizenViewerScope = string;
 
 /** Derive the cache namespace for the current viewer. */
-export function citizenViewerScope(userId: number | null | undefined): CitizenViewerScope {
+export function citizenViewerScope(userId: number | string | null | undefined): CitizenViewerScope {
   return userId != null ? `u:${userId}` : "anon";
 }
 

@@ -40,6 +40,14 @@ runtime = "import { createAmeeqLocal } from './api/ameeq.js';\n" + runtime;
 replaceBlock('  const aiResponse = await callAiEngine(userInput, rateKey, req.log);', 'var ameeq_default = router40;',
   '  return createAmeeqLocal({ pool })(req, res);\n});\n');
 
+// Core auth must be intercepted before archived express-session middleware:
+// the archive assumes numeric identities; the deployed Neon users use text IDs.
+runtime = "import { secureAuthRoutes, enforceDeviceSession, configureAuthModeration } from './server/auth.js';\n" + runtime;
+replaceOnce('app.use(sessionMiddleware);', 'configureAuthModeration(async username => !hasBlockedKeyword(username) && (await moderateText(username, { allowTrivial: true })).ok);\napp.use(secureAuthRoutes);\napp.use(sessionMiddleware);\napp.use(enforceDeviceSession);');
+// Keep other API routes from treating textual IDs as integer parameters while
+// checking the durable session. No account IDs are converted or re-assigned.
+replaceOnce('JOIN users u ON u.id = $2::integer', 'JOIN users u ON u.id::text = $2::text');
+
 // Accept both the existing hosted UI contract and the requested message/question API.
 replaceOnce('  const raw = req.body?.command;', '  const raw = req.body?.message || req.body?.question || req.body?.command;');
 replaceBlock('  if (!userInput) {\n    res.json({', '  const check3 = await validateContent(userInput, { allowTrivial: true });',

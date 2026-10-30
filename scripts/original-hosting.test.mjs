@@ -26,7 +26,9 @@ test('original archive is unchanged and protection removes destructive startup',
 
 test('all original section route registrations remain byte-for-byte unchanged', () => {
   const routes = s => s.match(/^(?:router\d*|app|app_default|adminRouter)\.(?:get|post|put|delete|patch|use)\(.*$/gm);
-  assert.deepEqual(routes(runtime), routes(original));
+  assert.deepEqual(routes(runtime).filter(line=>!['app.use(secureAuthRoutes);','app.use(enforceDeviceSession);'].includes(line)), routes(original));
+  assert.ok(runtime.indexOf('app.use(secureAuthRoutes);') < runtime.indexOf('app.use(sessionMiddleware);'));
+  assert.ok(runtime.includes('JOIN users u ON u.id::text = $2::text'));
   const config = JSON.parse(readFileSync('vercel.json'));
   assert.deepEqual(config.rewrites[0], { source: '/api/:path*', destination: '/api/original' });
 });
@@ -48,9 +50,9 @@ test('production cold start and public HTTP route perform no DB queries or exter
     registerHooks({ load(url, context, nextLoad) {
       const result = nextLoad(url, context);
       if (url.endsWith('/.original-backend/runtime.mjs')) {
-        if (!String(result.source).includes('pool = new Pool3({ connectionString, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5e3 });')) throw new Error('SQL probe anchor missing');
-        const source = String(result.source).replace('pool = new Pool3({ connectionString, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5e3 });',
-          'pool = new Pool3({ connectionString, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5e3 }); pool.query = (sql) => { if(globalThis.__allowAmeeq) return globalThis.__ameeqQuery(sql); globalThis.__queries++; throw new Error("Unexpected SQL"); }; pool.connect = async () => { if(globalThis.__allowAmeeq) return {query:globalThis.__ameeqQuery,release(){}}; globalThis.__queries++; throw new Error("Unexpected DB connect"); };');
+        if (!String(result.source).includes('pool2 = new Pool3({ connectionString, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5e3 });')) throw new Error('SQL probe anchor missing');
+        const source = String(result.source).replace('pool2 = new Pool3({ connectionString, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5e3 });',
+          'pool2 = new Pool3({ connectionString, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5e3 }); pool2.query = (sql) => { if(globalThis.__allowAmeeq) return globalThis.__ameeqQuery(sql); globalThis.__queries++; throw new Error("Unexpected SQL"); }; pool2.connect = async () => { if(globalThis.__allowAmeeq) return {query:globalThis.__ameeqQuery,release(){}}; globalThis.__queries++; throw new Error("Unexpected DB connect"); };');
         return { ...result, source };
       }
       return result;
@@ -78,6 +80,14 @@ test('production cold start and public HTTP route perform no DB queries or exter
       }).on('error', reject);
     });
     if (result.status !== 200 || JSON.parse(result.text).status !== 'ok') throw new Error('Original health endpoint failed: '+JSON.stringify(result));
+    for (const [path,method,expected] of [['/api/auth/login','POST',400],['/api/auth/me','GET',401]]) {
+      const auth = await new Promise((resolve,reject)=>{
+        const request=http.request({host:'127.0.0.1',port:server.address().port,path,method,headers:{'Content-Type':'application/json'}},res=>{
+          let text='';res.on('data',chunk=>text+=chunk);res.on('end',()=>resolve({status:res.statusCode,text}));
+        });request.on('error',reject);request.end(method==='POST'?'{}':undefined);
+      });
+      if(auth.status!==expected || typeof JSON.parse(auth.text).error!=='string') throw new Error('Secure auth route failed: '+path);
+    }
     await new Promise(r => setTimeout(r, 300));
     if (globalThis.__queries || externalAttempts) throw new Error('Unexpected startup activity: '+JSON.stringify({ queries: globalThis.__queries, externalAttempts }));
     // Exercise the actual archived rate limiter/moderation/route wiring with

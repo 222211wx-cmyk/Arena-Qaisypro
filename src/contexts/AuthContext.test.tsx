@@ -67,3 +67,11 @@ it('revalidates the cookie after an external tab event instead of trusting the m
  expect(fetch).toHaveBeenCalledTimes(2);expect(state.user?.id).toBe(12);expect(state.user?.username).toBe('ServerIdentity');
  vi.stubGlobal('BroadcastChannel',Original);
 });
+it('keeps a verified text identity unchanged and never authenticates localStorage JSON',async()=>{
+ localStorage.setItem('gdna_session',JSON.stringify({id:'forged',username:'Forged'}));
+ vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json({id:'opaque-real-id',username:'RealCitizen'}));
+ render(<AuthProvider><Reader/></AuthProvider>);
+ await waitFor(()=>expect(state.user?.id).toBe('opaque-real-id'));
+ expect(state.user?.username).toBe('RealCitizen');
+ localStorage.removeItem('gdna_session');
+});

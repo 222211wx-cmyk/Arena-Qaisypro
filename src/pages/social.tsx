@@ -171,19 +171,20 @@ export default function SocialPage() {
         <SmartDomainWidget domainId="social" label={st.module_social} />
       </div>
 
+      {user && typeof user.id === "string" && <p role="status" style={{padding:"16px"}}>Some legacy social features require a compatible account schema. Your signed-in account ID is preserved.</p>}
       {/* Tab content */}
       <div style={{ maxWidth: 880, margin: "0 auto", padding: "20px 16px" }}>
         <AnimatePresence mode="wait">
           <motion.div key={tab}
             initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }} transition={{ duration: 0.13 }}>
-            {tab === "overview"      && <CommunicationMatrix user={user} st={st} dir={dir} />}
-            {tab === "feed"          && <FeedTab          user={user} st={st} dir={dir} />}
-            {tab === "messages"      && <MessagesTab      user={user} st={st} dir={dir} />}
-            {tab === "stories"       && <StoriesRow       user={user} st={st} dir={dir} />}
-            {tab === "live"          && <LiveTab          user={user} st={st} />}
-            {tab === "citizens"      && <CitizensTab      user={user} st={st} />}
-            {tab === "notifications" && <NotificationsTab user={user} st={st} dir={dir} />}
+            {tab === "overview"      && <CommunicationMatrix user={user && typeof user.id === "number" ? {...user,id:user.id} : null} st={st} dir={dir} />}
+            {tab === "feed"          && <FeedTab          user={user && typeof user.id === "number" ? {...user,id:user.id} : null} st={st} dir={dir} />}
+            {tab === "messages"      && <MessagesTab      user={user && typeof user.id === "number" ? {...user,id:user.id} : null} st={st} dir={dir} />}
+            {tab === "stories"       && <StoriesRow       user={user && typeof user.id === "number" ? {...user,id:user.id} : null} st={st} dir={dir} />}
+            {tab === "live"          && <LiveTab          user={user && typeof user.id === "number" ? {...user,id:user.id} : null} st={st} />}
+            {tab === "citizens"      && <CitizensTab      user={user && typeof user.id === "number" ? {...user,id:user.id} : null} st={st} />}
+            {tab === "notifications" && <NotificationsTab user={user && typeof user.id === "number" ? {...user,id:user.id} : null} st={st} dir={dir} />}
           </motion.div>
         </AnimatePresence>
       </div>
