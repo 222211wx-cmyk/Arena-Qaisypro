@@ -38,7 +38,8 @@ export async function migrateAuthUsersSchema(client) {
     const { rows } = await client.query(columnsQuery);
     const columns = new Map(rows.map(row => [row.name, row.type]));
     console.log('Existing users schema:', JSON.stringify(Object.fromEntries(columns)));
-    for (const [name, type] of Object.entries({id:'integer',username:'text',email:'text',password_hash:'text',credential_epoch:'integer'})) {
+    if (!['text','integer'].includes(columns.get('id'))) throw new Error('Required identity column incompatible: id');
+    for (const [name, type] of Object.entries({username:'text',email:'text',password_hash:'text',credential_epoch:'integer'})) {
       if (columns.get(name) !== type) throw new Error(`Required identity column incompatible: ${name}`);
     }
     for (const [name, definition] of Object.entries(missingUserColumns)) {
@@ -75,6 +76,14 @@ export async function migrateAuthUsersSchema(client) {
       AND conkey = ARRAY[(SELECT attnum FROM pg_attribute
         WHERE attrelid = 'user_sessions'::regclass AND attname = 'sid')]::smallint[]`);
     if (!key.rows.length) throw new Error('Session sid uniqueness required');
+    await client.query(`CREATE TABLE IF NOT EXISTS gdna_auth_recovery_phones (
+      user_id TEXT PRIMARY KEY, phone_e164 TEXT NOT NULL, firebase_project_id TEXT NOT NULL,
+      UNIQUE(phone_e164,firebase_project_id))`);
+    await client.query(`CREATE TABLE IF NOT EXISTS gdna_auth_recovery_proofs (
+      event_digest TEXT PRIMARY KEY, consumed_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
+    await client.query(`CREATE TABLE IF NOT EXISTS gdna_auth_recovery_limits (
+      scope TEXT NOT NULL, window_start TIMESTAMPTZ NOT NULL, attempts INTEGER NOT NULL,
+      PRIMARY KEY(scope,window_start))`);
     await client.query('COMMIT');
     console.log('Login users/session schema verified; added users columns:', added.join(', ') || 'none');
   } catch (error) {

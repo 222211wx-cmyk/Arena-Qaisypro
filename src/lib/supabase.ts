@@ -1,70 +1,49 @@
-// حل 1010 - كيخدم بلا Supabase
-const createLocalClient = () => {
-  const getUsers = () => {
-    try { 
-      const u = JSON.parse(localStorage.getItem('gdna_users') || 'null');
-      if (u) return u;
-    } catch {}
-    // هادا هو الكونت ديال 1010
-    const defaultUsers = [{ 
-      id: '1010', 
-      email: '222211wx@gmail.com', 
-      username: 'El Qaisy Abdelmalik', 
-      password: '12345678' 
-    }];
-    localStorage.setItem('gdna_users', JSON.stringify(defaultUsers));
-    return defaultUsers;
-  };
-  
-  const saveUsers = (users: any) => localStorage.setItem('gdna_users', JSON.stringify(users));
+import { createClient } from '@supabase/supabase-js';
 
-  return {
-    auth: {
-      signInWithPassword: async ({ email, password }: any) => {
-        const users = getUsers();
-        const user = users.find((x: any) => (x.email === email || x.username === email) && x.password === password);
-        if (!user) return { data: null, error: { message: 'الايميل ولا الباسورد غالط' } };
-        localStorage.setItem('gdna_session', JSON.stringify(user));
-        return { data: { user }, error: null };
-      },
-      signUp: async ({ email, password, options }: any) => {
-        const users = getUsers();
-        if (users.find((x: any) => x.email === email)) {
-          return { data: null, error: { message: 'هاد الايميل كاين already' } };
-        }
-        const newUser = { id: Date.now().toString(), email, username: options?.data?.username || email.split('@')[0], password };
-        users.push(newUser);
-        saveUsers(users);
-        localStorage.setItem('gdna_session', JSON.stringify(newUser));
-        return { data: { user: newUser }, error: null };
-      },
-      getSession: async () => {
-        const s = localStorage.getItem('gdna_session');
-        return { data: { session: s ? { user: JSON.parse(s) } : null } };
-      },
-      signOut: async () => {
-        localStorage.removeItem('gdna_session');
-        return { error: null };
-      }
-    },
-    from: () => ({
-      select: () => ({ 
-        eq: () => ({ single: () => Promise.resolve({ data: null, error: null }), data: [], error: null }),
-        data: [], error: null 
-      }),
-      insert: () => Promise.resolve({ data: null, error: null }),
-      update: () => ({ eq: () => Promise.resolve({ data: null, error: null }) })
-    })
-  } as any;
-};
+// Optional public content client only. Database credentials never enter the
+// browser. All account identity comes from the same-origin HttpOnly session.
+const url = import.meta.env.VITE_SUPABASE_URL?.trim();
+const key = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+const content = url && key ? createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }) : null;
+export const isSupabaseConfigured = !!content;
 
-export const supabase = createLocalClient();
-
-export const isSupabaseConfigured = !!supabase;
-
-export function requireSupabase() {
-  if (!supabase) {
-    throw new Error("Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then rebuild.");
-  }
-  return supabase;
+async function authRequest(path: string, body?: Record<string, unknown>) {
+  try {
+    const base = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '');
+    const response = await fetch(`${base}/api/auth/${path}`, {
+      method: body ? 'POST' : 'GET', credentials: 'include', cache: 'no-store',
+      headers: { Accept: 'application/json', ...(body ? {'Content-Type':'application/json'} : {}) },
+      ...(body ? {body:JSON.stringify(body)} : {}),
+    });
+    if (path === 'me' && response.status === 401) return { data:null, error:null };
+    const data = await response.json();
+    if (!response.ok) return {data:null,error:{message:typeof data.error === 'string' ? data.error : 'Authentication unavailable'}};
+    return {data,error:null};
+  } catch { return {data:null,error:{message:'Authentication unavailable; retry later'}}; }
 }
+
+export const supabase = {
+  auth: {
+    async signInWithPassword({email,password}: {email:string;password:string}) {
+      const result = await authRequest('login',{email,password});
+      return {data:result.data ? {user:result.data,session:{user:result.data}} : null,error:result.error};
+    },
+    async signUp({email,password,options}: {email:string;password:string;options?:{data?:{username?:string;birthDate?:string}}}) {
+      const result = await authRequest('register',{email,password,username:options?.data?.username,birthDate:options?.data?.birthDate});
+      return {data:result.data ? {user:result.data,session:{user:result.data}} : null,error:result.error};
+    },
+    async getSession() {
+      const result = await authRequest('me');
+      return {data:{session:result.data ? {user:result.data} : null},error:result.error};
+    },
+    async signOut() { const result=await authRequest('logout',{}); return {error:result.error}; },
+    async resetPasswordForEmail(_email:string) {
+      return {data:null,error:{message:'Use verified account recovery. No recovery email has been sent.'}};
+    },
+  },
+  from(table:string) {
+    if (!content) throw new Error('Public content service is not configured.');
+    return content.from(table);
+  },
+};
+export function requireSupabase() { return supabase; }

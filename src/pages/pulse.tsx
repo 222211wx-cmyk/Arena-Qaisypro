@@ -178,7 +178,7 @@ function PostCard({ post, onLike, onDeleted, currentUserId, lang }: {
   post: Post;
   onLike: (id: number) => Promise<boolean>;
   onDeleted: (id: number) => void;
-  currentUserId?: number;
+  currentUserId?: number | string;
   lang: Lang;
 }) {
   const [liked, setLiked] = useState(false);

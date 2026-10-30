@@ -65,7 +65,7 @@ export default function AmeeqPage() {
   const [snapshot,setSnapshot] = useState<Snapshot>({turns:[],clips:[],citizens:[],updatedAt:Date.now()});
   const cacheOwner=useRef<number|null>(null);
   const requestEpoch=useRef(0);
-  const identity=useRef<number|null>(user?.id ?? null);
+  const identity=useRef<number|string|null>(user?.id ?? null);
   identity.current=user?.id ?? null;
   const copy = lang === "fr" ? { greeting: "Bonjour. Posez-moi n'importe quelle question.", placeholder: "Écrivez votre commande ici...", send: "Envoyer", typing: "écrit…" } : lang === "es" ? { greeting: "Hola. Pregúntame lo que quieras.", placeholder: "Escribe tu orden aquí...", send: "Enviar", typing: "está escribiendo…" } : lang === "de" ? { greeting: "Hallo. Frag mich, was du möchtest.", placeholder: "Gib hier deinen Auftrag ein…", send: "Senden", typing: "schreibt gerade…" } : lang === "en" ? { greeting: "Hello. Ask me anything.", placeholder: "Write your command here...", send: "Send", typing: "is typing…" } : { greeting: "مرحبا. اسألني أي شيء.", placeholder: "اكتب أمرك هنا...", send: "إرسال", typing: "كيكتب…" };
   const de = (fallback: string, german: string) => lang === "de" ? german : fallback;
@@ -120,7 +120,7 @@ export default function AmeeqPage() {
     let stored:number|null=null;
     try{const value=Number(localStorage.getItem('ameeq-offline-owner'));if(Number.isSafeInteger(value)&&value>0)stored=value;}catch{}
     if(user&&stored!==null&&stored!==user.id){void clearAmeeq().catch(()=>{});try{localStorage.removeItem('ameeq-offline-owner');}catch{}stored=null;}
-    const owner=user?.id ?? (!navigator.onLine ? stored : null);
+    const owner=typeof user?.id === "number" ? user.id : user ? null : (!navigator.onLine ? stored : null);
     cacheOwner.current=owner;
     setCacheEnabled(owner!==null&&stored===owner);
     if(owner&&stored===owner)void loadAmeeq(owner).then(value=>{if(active){setSnapshot(value);setMessages(value.turns.length?value.turns:[{from:'ai',text:copy.greeting}]);}});
@@ -135,7 +135,7 @@ export default function AmeeqPage() {
     void clearAmeeq().catch(()=>{});
   }),[]);
   async function enableCache(){
-    if(!user)return;
+    if(!user || typeof user.id !== "number")return;
     try{
       localStorage.setItem('ameeq-offline-owner',String(user.id));cacheOwner.current=user.id;setCacheEnabled(true);
       const registration=await navigator.serviceWorker?.register(`${import.meta.env.BASE_URL}ameeq-offline-sw.js`,{scope:`${import.meta.env.BASE_URL}ameeq`});

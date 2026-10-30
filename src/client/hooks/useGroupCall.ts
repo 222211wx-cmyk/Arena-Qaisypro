@@ -173,7 +173,7 @@ export function useGroupCall(user: AuthUser | null, directCallStatus: CallStatus
   }, []);
 
   const ensureRegisteredDevice = useCallback(async () => {
-    if (!user) throw new Error("Sign in to use group calls.");
+    if (!user || typeof user.id !== "number") throw new Error("Group calls are not available for this account schema.");
     const identity = await registerSecureDevice(user.id);
     deviceIdRef.current = identity.deviceId;
     return identity;
@@ -337,7 +337,7 @@ export function useGroupCall(user: AuthUser | null, directCallStatus: CallStatus
   const answerCall = useCallback(async () => {
     const invitation = incoming;
     if (!invitation) return;
-    if (!user) return setFailure("Sign in to answer this group call.");
+    if (!user || typeof user.id !== "number") return setFailure("Group calls are not available for this account schema.");
     if (directCallStatus !== "idle") return setFailure("Finish your current private call before answering a group call.");
     setError(null);
     setStatus("connecting");
@@ -615,7 +615,7 @@ export function useGroupCall(user: AuthUser | null, directCallStatus: CallStatus
     remoteTracks,
     remoteStreams: remoteTracks.map(track => track.mediaStream),
     localStream,
-    localUserId: user?.id ?? null,
+    localUserId: typeof user?.id === "number" ? user.id : null,
     localVideoTrack,
     startCall,
     answerCall,

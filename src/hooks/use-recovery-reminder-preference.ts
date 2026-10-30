@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { recoveryReminderPreferenceKey } from "@/lib/workspace/recovery-reminder";
 
 /** Persist only opt-in, never recovery material; each account owns its choice. */
-export function useRecoveryReminderPreference(userId: number | undefined) {
+export function useRecoveryReminderPreference(userId: number | string | undefined) {
   const key = userId === undefined ? null : recoveryReminderPreferenceKey(userId);
   const [state, setState] = useState({ key: null as string | null, enabled: false, failed: false });
 

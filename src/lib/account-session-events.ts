@@ -55,7 +55,7 @@ export function subscribeAccountChanges(listener: () => void): () => void {
 }
 
 /** Call only after a confirmed mutation or a verified identity change. */
-export function announceAccountChange(accountId?: number | null): void {
+export function announceAccountChange(accountId?: number | string | null): void {
   const eventId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   lastEvent = eventId;
   try {

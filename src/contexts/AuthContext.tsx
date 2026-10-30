@@ -5,7 +5,7 @@ import { clearAmeeq } from "@/lib/ameeq-light";
 import { readApiJson } from "@/lib/api-transport";
 
 export interface AuthUser {
-  id: number;
+  id: number | string;
   username: string;
   balance: number;
   xp: number;
@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   const verifiedUser = (data: unknown): AuthUser | null => {
     if (data === null) return null;
-    if (typeof data !== "object" || !("id" in data) || typeof data.id !== "number" ||
+    if (typeof data !== "object" || !("id" in data) || !(typeof data.id === "string" && data.id.length > 0 && data.id.length <= 256 || typeof data.id === "number" && Number.isSafeInteger(data.id) && data.id > 0) ||
         !("username" in data) || typeof data.username !== "string") {
       throw new Error("Invalid authenticated session response.");
     }
@@ -68,12 +68,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const next = verifiedUser(await request("me"));
       if (token === generation.current) { setUser(next); setAuthError(null); }
     } catch (error) {
-      if (token === generation.current) setAuthError(error instanceof Error ? error.message : "Session unavailable.");
+      if (token === generation.current) { setUser(null); setAuthError(error instanceof Error ? error.message : "Session unavailable."); }
     } finally {
       if (token === generation.current) setLoading(false);
     }
   };
   useEffect(() => {
+    // Retire the old fake client cache, including plaintext user passwords.
+    // Never clear unrelated origin storage or trust a cached identity.
+    try { for (const key of ['gdna_users','gdna_session','gdna_device']) localStorage.removeItem(key); } catch {}
     void refreshUser();
     return () => { generation.current += 1; };
   }, []);
