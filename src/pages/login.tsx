@@ -78,7 +78,7 @@ export default function Login({ messagesEntry = false, returnTo }: { messagesEnt
 
   const destination = returnTo ?? citizenReturnPath(search) ?? messagesReturnPath(search) ?? recoveryEnrollmentReturnPath(search);
   const messengerLogin = messagesEntry || messagesReturnPath(search) !== null;
-  const [mode, setMode] = useState<"choice" | "auth">(messengerLogin || destination !== null ? "auth" : "choice");
+  const [mode, setMode] = useState<"choice" | "auth">("auth");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -92,9 +92,9 @@ export default function Login({ messagesEntry = false, returnTo }: { messagesEnt
     try {
        await login(username.trim(), password, rememberMe);
       if (destination) setLocation(destination);
-      else setMode("choice");
+      else setLocation("/dashboard");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : copy.authFailed);
+      setError(err instanceof Error && err.message.includes("HTTP 401") ? ({ar:"تعذر الدخول بهذه البيانات. تحقق من البريد أو اسم اللاعب وكلمة المرور، أو استعد حسابك. يمكنك المتابعة كزائر دون تسجيل.",en:"Those sign-in details were not accepted. Check your email or player name and password, or recover your account. You can keep exploring without signing in.",fr:"Identifiants refusés. Vérifiez votre e-mail ou nom de joueur et votre mot de passe, ou récupérez votre compte. Vous pouvez continuer sans connexion.",es:"Datos no aceptados. Comprueba tus datos o recupera tu cuenta. Puedes seguir explorando sin iniciar sesión.",de:"Anmeldedaten nicht akzeptiert. Prüfe deine Daten oder stelle dein Konto wieder her. Du kannst ohne Anmeldung weiter entdecken."})[lang] : err instanceof Error ? err.message : copy.authFailed);
     } finally {
       setIsLoading(false);
     }
@@ -157,17 +157,18 @@ export default function Login({ messagesEntry = false, returnTo }: { messagesEnt
               <CardContent className="pt-6">
                 {!messengerLogin && <button
                   type="button"
-                  onClick={() => { setMode("choice"); setError(""); }}
+                  onClick={() => { setLocation("/"); setError(""); }}
                   className="mb-4 inline-flex items-center gap-1 text-xs uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors"
                   data-testid="button-back-to-choice"
                 >
                   <ArrowLeft className="w-3 h-3" />
-                  {copy.back}
+                  {copy.guest}
                 </button>}
                 <a href={`${import.meta.env.BASE_URL}forgot-password`} className="block text-primary mb-3">نسيت كلمة السر / Forgot password</a>
+                <Link href="/" className="mb-4 block text-sm underline text-primary" data-testid="link-explore-without-login">{copy.guest}</Link>
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {error && (
-                    <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+                    <div role="alert" className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-sm">
                       <AlertCircle className="w-4 h-4 shrink-0" />
                       {error}
                     </div>
