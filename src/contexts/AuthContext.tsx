@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Retire the old fake client cache, including plaintext user passwords.
     // Never clear unrelated origin storage or trust a cached identity.
-    try { for (const key of ['gdna_users','gdna_session','gdna_device']) localStorage.removeItem(key); } catch {}
+    try { for (const key of ['gdna_users','gdna_session','gdna_device','arena:demo:session:v1']) localStorage.removeItem(key); } catch {}
     void refreshUser();
     return () => { generation.current += 1; };
   }, []);
