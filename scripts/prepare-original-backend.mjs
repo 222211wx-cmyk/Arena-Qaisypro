@@ -4,6 +4,13 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// One-shot operator flag passed to this deployment's build, not a saved env var.
+if (process.env.ARENA_MIGRATE_CREDENTIAL_EPOCH === '1') {
+  const { runCredentialEpochMigration } = await import('./migrate-auth-credential-epoch.mjs');
+  try { await runCredentialEpochMigration(); }
+  catch { throw new Error('Auth schema migration failed; deployment stopped. Check database schema/access.'); }
+}
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const archive = new AdmZip(resolve(root, 'api-server.zip'));
 let runtime = archive.readAsText('api-server/dist/index.mjs');
