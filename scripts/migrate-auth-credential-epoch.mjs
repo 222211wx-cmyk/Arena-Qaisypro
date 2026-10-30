@@ -31,6 +31,8 @@ export async function runCredentialEpochMigration() {
     await client.connect();
     await migrateCredentialEpoch(client);
     console.log('Auth migration verified: credential_epoch INTEGER NOT NULL DEFAULT 0. Existing accounts and password hashes preserved.');
+    const { migrateAuthUsersSchema } = await import('./migrate-auth-users-schema.mjs');
+    await migrateAuthUsersSchema(client);
   } finally {
     await client.end();
   }
