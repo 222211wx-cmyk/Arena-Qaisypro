@@ -21,7 +21,19 @@ build override, not a persistent project variable. Ordinary builds and request
 startup do not migrate anything. The transaction has bounded lock/statement
 waits, serializes this migration, and verifies the resulting type/default/null
 constraint before committing. Existing incompatible columns abort for review.
-No accounts, password hashes, roles, or session records are rewritten.
+No existing accounts, password hashes, roles, or session records are rewritten.
+
+Live verification after repairing credential_epoch revealed another absent users
+field, birth_date. The explicit migration now checks the existing identity types
+and adds only missing usersTable fields using the archived backend's own types
+and defaults. Unknown birth dates remain NULL (not an adult-age bypass). Missing
+admin/subscription flags default false. Existing balances are preserved; if the
+balance column is entirely absent it receives the backend's declared initial
+500 game coins. No real-money balance field is changed. The standard empty
+user_sessions table is created only if absent; existing session column types and
+sid uniqueness are validated, not rewritten. No unrelated feature tables are
+created. This is schema compatibility, not a claim that legacy profile data or
+feature tables have been recovered from another database.
 
 Verify real login returns 200 with an existing numeric user ID and HttpOnly
 session cookie, then GET `/api/auth/me` with that cookie. Wrong credentials must
