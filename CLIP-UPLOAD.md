@@ -1,30 +1,112 @@
-# Clip upload lifecycle
+# Clip upload and R2 playback
 
-The isolated Clips entry uploads original bytes directly to presigned R2 URLs in
-5 MiB parts, through the inclusive limit of 10 GiB (10,737,418,240 bytes).
-It does not load a browser encoder. Browser duration inspection is only a hint.
+This is a Vite application backed by the archived Express server. The hosting
+adapter in `scripts/prepare-original-backend.mjs` restores the direct upload route
+without editing the archive or adding a Next.js route that would not be served.
 
-`POST /api/upload/presign` supplies the existing initiate/inspect/part/abort
-protocol. Multipart completion uses `POST /api/upload/complete`. Its 202 response
-is an acceptance, not a publication receipt. At that point the original IndexedDB
-Blob is deleted atomically with storing account-scoped processing metadata.
-`GET /api/upload/status/:sessionId` is read with session credentials; only a
-verified ready receipt publishes a link or refreshes the feed.
+## Current browser lifecycle
 
-The open client checks processing jobs every five seconds and on return. Each
-check is bounded; the canonical service worker transfers stored files but does
-not wait for server encoding or loop on processing jobs during Background Sync.
-Failed jobs retain their explicit error and local cleanup action. Retrying a
-failed encoding requires selecting the source again. Removing local tracking does
-not cancel server processing or delete published media.
+1. Check the signed-in citizen with `/api/auth/session` (an alias of the original database-backed `/api/auth/me` handler).
+2. `POST /api/clips/presign` validates the account, title, media type and positive
+   size (at most 5 GiB, matching the current browser). The existing per-citizen
+   limiter is retained. It stores an expiring, account-owned `direct-put` receipt
+   in the existing `r2_clip_uploads` table and returns `{ url, uploadUrl, key }` where `uploadUrl` is the one-hour signed PUT URL and `url` is the public
+   display URL from `getPublicUrl(key)`. The browser PUTs only to `uploadUrl`;
+   a display URL returned here is not proof that the object exists or is published.
+   JSON initiation includes filename, contentType, size, title and an optional ownerId; the
+   authenticated server session, never the ownerId alone, determines ownership.
+   Null/omitted browser ownerId is accepted only with a verified server session.
+   The older expectedOwnerId field remains supported and fenced for compatibility.
+3. The browser sends the original File directly to R2, with its exact Content-Type
+   and `If-None-Match: *`. The signature binds size, type and create-only behavior.
+   Media bytes do not pass through a Vercel Function.
+4. `POST /api/clips/confirm` retains the original ownership check, advisory lock,
+   expiry check, stored-size verification, actual media probe and transactional
+   clip publication. The media verifier is packaged with the Function rather than
+   relying on a system `ffprobe`. The minimum is inclusive at 60 seconds, with no application duration ceiling.
+   This does not remove the 5 GiB single-PUT size limit, one-hour upload receipt
+   expiry, bounded media-probe work, or browser/network/storage constraints.
+   Successful confirmation returns the public `url` alongside `ok: true` and the
+   persisted clip metadata; repeated confirmation returns the same publication.
+   The browser accepts a display URL only from this successful receipt, never
+   from the earlier presign response.
+5. Only a successful confirmation refreshes the public feed. Presign acceptance
+   alone never reports that a clip was published. No automatic data import, seed,
+   migration, thumbnail generation or account creation is introduced.
 
-Original-byte persistence and Web Locks retain pause/resume/account fencing.
-Local quotas may be far below 10 GiB. If the Blob cannot be stored, the UI says
-foreground-only and no reopen recovery; browser background execution is always
-best effort, especially on mobile. No beforeunload blocker is installed.
+The older multipart `/api/upload/*` routes remain unchanged; they are not the
+protocol currently used by `src/components/clips/clipUpload.ts`.
 
-Build audit: the clip bootstrap preload branch includes clip-entry and the shared
-reels icons chunk, not app-entry or its stylesheet. Citizen/messenger overlays are
-dynamic imports activated explicitly. Production cold-request verification should
-also inspect actual browser requests, since older deployed assets can differ from
-the workspace build.
+## Server-only configuration
+
+- `R2_ENDPOINT`: private S3-compatible API endpoint, used only for storage calls.
+- `R2_BUCKET`: `gdna-arena` only for new uploads. No fallback to `R2_BUCKET_NAME`.
+  Old `helixly-clips` objects are not copied, deleted, imported or migrated.
+  Existing bucket-less `r2:` references do not encode the old bucket: this change
+  cannot promise old playback after switching storage; it does not infer or repair
+  their provenance. New publication starts in the newly selected bucket.
+- `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`: real R2 credentials, server-only.
+- `DATABASE_URL`: existing database, including its original upload/clip schema.
+- `R2_PUBLIC_URL`: optional public HTTPS base URL for **the same bucket**.
+
+For public R2 clip references, playback and existing thumbnail routes use the
+public base plus the exact object key, after their existing visibility lookup.
+Downloads retain the range-aware authenticated-storage proxy. Without a public
+base, existing signed/proxied delivery remains. Legacy non-R2 object references
+are not guessed, rewritten or migrated. `getPublicUrl` constructs the display URL, never the API endpoint. A public URL cannot create a missing
+object or thumbnail, repair an incorrect stored key, or expose a private bucket.
+
+A public bucket's object URLs are accessible independently of the app: freezing
+or deleting a database record does not revoke a copied public object URL. Use a
+private bucket and omit `R2_PUBLIC_URL` if storage-level access control is needed.
+
+On the R2 bucket, browser upload CORS must allow the actual app/preview origins,
+PUT, and the `Content-Type` and `If-None-Match` request headers. Public playback
+must also permit the app's media usage as needed. Do not expose credentials in
+Vite variables, source code, screenshots, or PRs. Cloudflare settings, object migration and database parity are not changed by
+this code. Environment configuration is applied separately through Vercel.
+
+## Checks
+
+- `node --test scripts/clip-r2.test.mjs`
+- `npm run test:hosting` (includes production cold start, public URL wiring and a
+  real in-memory WAV probed with the packaged verifier)
+- `npx vitest run src/components/clips/clipUpload.test.ts`
+- `npm run build`
+
+Before production rollout, use a preview with its own configured database/R2
+resources and a test citizen account to verify presign → browser PUT → confirm →
+feed → playback. Local mocks and a READY build do not prove live bucket CORS,
+object availability, credentials, schema compatibility or end-to-end publication.
+
+## Stalled transfers and grid recovery
+
+The browser shows session → presign → storage → confirm separately. Each API
+request has a 30-second deadline; storage aborts after 90 seconds without upload
+progress (not a total-duration cap). A network error may mean CORS, connectivity
+or an expired signature: only a browser Network trace can distinguish them.
+Console diagnostics contain stage/status/error class, never signed URLs or cookies.
+These browser diagnostics are not automatically shipped into Vercel runtime logs.
+The session request is same-origin on each hosting domain; cookies are not shared
+between Replit, preview and production. Each domain requires its own sign-in.
+
+`/clips` opens the active full-frame reel by default; `/clips?view=grid` explicitly
+opts into the three-column grid. Browser native fullscreen remains user-initiated.
+Grid and search cards have isolated containing boxes, cover-fit posters and gaps.
+This does not migrate missing old media or repair legacy object provenance.
+
+### Cloudflare operator step (not applied by a Vercel deployment)
+
+Cloudflare → R2 object storage → gdna-arena → Settings → CORS Policy →
+Add CORS policy → JSON → Save. Review/merge any existing rules first. Use
+`docs/r2-cors-test.json` for the requested temporary all-origin test; afterwards
+replace `*` with the exact production origins (including www) and required preview
+origins. CORS does not grant unsigned PUT access or replace authentication.
+
+Source: https://developers.cloudflare.com/r2/buckets/cors/
+
+Verify in the browser on the actual signed-in app origin: OPTIONS permits PUT,
+Content-Type and If-None-Match; PUT returns 2xx; confirm returns ok:true and clip
+metadata; feed/playback can then read the published object. Never share a signed
+URL or a HAR containing cookies or credentials. A successful presign alone is not
+an end-to-end upload test.

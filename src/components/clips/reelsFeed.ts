@@ -1352,7 +1352,7 @@ export function mountReels(root: HTMLElement, options: MountReelsOptions): Reels
   });
   const query = new URLSearchParams(window.location.search);
   searchQuery = query.get("q")?.trim() ?? "";
-  const initialGrid = query.get("view") !== "reels";
+  const initialGrid = query.get("view") === "grid";
   if (query.get("search") === "1") queueMicrotask(openSearch);
   if (initialGrid) toggleGrid(true);
   else void loadPage();

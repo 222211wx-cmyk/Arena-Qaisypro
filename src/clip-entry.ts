@@ -343,7 +343,16 @@ form.addEventListener("submit", async event => {
     if (cachedFile !== file) return;
     if (duration !== null && duration < 60) throw new Error("خاص دقيقة الفوق");
     const metadata: ClipUploadMetadata = { title, durationSec: duration };
-    const published = await uploadClip(file, metadata, operation.signal, reportUploadProgress, { expectedOwner: owner });
+    const published = await uploadClip(file, metadata, operation.signal, reportUploadProgress, { expectedOwner: owner, onStage: stage => {
+      const labels = {
+        session: "Vérification de session…",
+        presign: "Préparation du lien R2…",
+        storage: "Envoi direct vers R2…",
+        confirm: "Vérification et publication…",
+      };
+      submit.textContent = labels[stage];
+      status.textContent = labels[stage];
+    } });
     if (uploadOwner !== owner) return;
     finalizePublication({ ...published, name: title });
     reloadFeedAfterPublish();

@@ -21,6 +21,51 @@ function replaceBlock(start, end, replacement) {
   runtime = runtime.slice(0, a) + replacement + runtime.slice(b);
 }
 
+// Catch middleware errors as well as route failures; Express's default error
+// and not-found handlers otherwise return HTML (including session-store errors).
+runtime = "import { apiAliases, apiNotFound, apiError } from './server/api-json.mjs';\n" + runtime;
+replaceOnce('app.set("trust proxy", 1);', 'app.set("trust proxy", 1);\napp.use(apiAliases);');
+replaceOnce('app.use("/api", routes_default);', 'app.use("/api", routes_default);\napp.use(apiNotFound);\napp.use(apiError);');
+
+// Alias the original database-backed, credential-epoch checked session handler.
+// Never use the separate legacy auth adapter or trust a browser account object.
+replaceOnce('router4.get("/auth/me", async (req, res) => {',
+  'router4.get(["/auth/me", "/auth/session"], async (req, res) => {');
+// Restore the direct-upload endpoint used by the current Vite client. Keep the
+// archive intact and mount after its existing account fence and rate limiter.
+runtime = "import { createClipPresign, publicClipUrl } from './server/clip-r2.mjs';\n" + runtime;
+replaceOnce('router55.post("/clips/confirm", async (req, res) => {',
+  'router55.post("/clips/presign", createClipPresign({ pool, r2Config, resolveClipUploadType, clipDownloadExtension, validateClipDisplayTitle, ClipUploadError, logger }));\nrouter55.post("/clips/confirm", async (req, res) => {');
+replaceOnce('if (req.body?.expectedOwnerId !== void 0 && req.body.expectedOwnerId !== req.session.userId) {',
+  'if ((req.body?.ownerId != null && req.body.ownerId !== req.session.userId) || (req.body?.expectedOwnerId != null && req.body.expectedOwnerId !== req.session.userId)) {');
+// Only the direct-confirm receipt gets the public media URL. Preserve the
+// publication metadata expected by the Vite client and idempotent retry path.
+{
+  const start = runtime.indexOf('router55.post("/clips/confirm", async (req, res) => {');
+  const end = runtime.indexOf('var clips_direct_default = router55;', start);
+  if (start < 0 || end < 0) throw new Error('Direct confirmation boundary changed');
+  let route = runtime.slice(start, end);
+  for (const clip of ['existing.rows[0]', 'clip']) {
+    const before = `res.json(finalClipReceipt(${clip}));`;
+    if (route.split(before).length !== 2) throw new Error('Confirmation receipt changed');
+    route = route.replace(before, `res.json({ ...finalClipReceipt(${clip}), url: publicClipUrl(r2Reference(key2)) });`);
+  }
+  runtime = runtime.slice(0, start) + route + runtime.slice(end);
+}
+// Publication must probe the actual media, even on hosts without system ffprobe.
+runtime = "import clipFfprobe from '@ffprobe-installer/ffprobe';\n" + runtime;
+replaceOnce('spawn2("ffprobe", [', 'spawn2(clipFfprobe.path, [');
+// Only the canonical bucket variable selects storage; never fall back to a stale name.
+replaceOnce('(process.env.R2_BUCKET_NAME || process.env.R2_BUCKET)?.trim()',
+  'process.env.R2_BUCKET?.trim()');
+// Public media only: do not change the shared R2 signer used by private storage.
+replaceOnce('async function signClipPlayback(filename, request = fetch) {',
+  'async function signClipPlayback(filename, request = fetch) {\n  const publicUrl = publicClipUrl(filename);\n  if (publicUrl) return { url: publicUrl, urlExpiresAt: null };');
+replaceOnce('        res.setHeader("Content-Type", name.endsWith(".webp") ? "image/webp" : "image/jpeg");',
+  '        const publicUrl = publicClipUrl(name);\n        if (publicUrl) return res.set("Cache-Control", "no-store").redirect(307, publicUrl);\n        res.setHeader("Content-Type", name.endsWith(".webp") ? "image/webp" : "image/jpeg");');
+replaceOnce('        const file2 = clipFile(clip.object_name);',
+  '        const publicUrl = req.query.download !== "1" ? publicClipUrl(clip.object_name) : null;\n        if (publicUrl) return res.set("Cache-Control", "no-store").redirect(307, publicUrl);\n        const file2 = clipFile(clip.object_name);');
+
 // Ameeq enhancement: replace its generic answer after the original
 // input validation, moderation and rate limiter. All other routes stay original.
 runtime = "import { createAmeeqLocal } from './api/ameeq.js';\n" + runtime;
@@ -94,7 +139,7 @@ await build({
   outfile: resolve(output, 'runtime.mjs'),
   bundle: true, platform: 'node', format: 'esm', target: 'node22',
   banner: { js: "import { createRequire as hostingCreateRequire } from 'node:module'; globalThis.require = hostingCreateRequire(import.meta.url);" },
-  external: ['@aws-sdk/*', '@google-cloud/*', 'bcrypt', 'drizzle-orm', 'drizzle-orm/*', 'pg', 'undici', 'google-auth-library'],
+  external: ['@ffprobe-installer/*', '@aws-sdk/*', '@google-cloud/*', 'bcrypt', 'drizzle-orm', 'drizzle-orm/*', 'pg', 'undici', 'google-auth-library'],
 });
 // Keep the archived logging workers beside the generated bundle.
 for (const entry of archive.getEntries()) {

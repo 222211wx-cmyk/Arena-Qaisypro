@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FILE_TOO_LARGE_MESSAGE, MAX_CLIP_BYTES, uploadClip } from "./clipUpload";
+import { FILE_TOO_LARGE_MESSAGE, MAX_CLIP_BYTES, API_TIMEOUT_MS, STORAGE_IDLE_TIMEOUT_MS, currentUploadOwner, uploadClip } from "./clipUpload";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 type Sent = { url: string; method: string; body: unknown; headers: Record<string, string> };
 
-function setup({ me = 7, putStatus = 200, hold = false, confirm = { ok: true, clip: { id: 9, code: "HELX-123456", title: "Mon clip" } } } = {}) {
-  const fetches: Array<{ url: string; body: Record<string, unknown> | null }> = [];
+function setup({ me = 7, putStatus = 200, hold = false, confirm = { ok: true, url: "https://public.example/confirmed.mp4", clip: { id: 9, code: "HELX-123456", title: "Mon clip" } } } = {}) {
+  const fetches: Array<{ url: string; body: Record<string, unknown> | null; init?: RequestInit }> = [];
   const puts: Sent[] = [];
   let xhr: MockXHR | null = null;
   class MockXHR {
@@ -32,10 +32,10 @@ function setup({ me = 7, putStatus = 200, hold = false, confirm = { ok: true, cl
   vi.stubGlobal("XMLHttpRequest", MockXHR);
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     const body = init?.body ? JSON.parse(String(init.body)) : null;
-    fetches.push({ url, body });
+    fetches.push({ url, body, init });
     const json = (data: unknown) => new Response(JSON.stringify(data), { status: 200, headers: { "Content-Type": "application/json" } });
-    if (url.endsWith("api/auth/me")) return json({ id: me, username: "citizen" });
-    if (url.endsWith("api/clips/presign")) return json({ url: "https://signed.example/put", key: "clips/abc" });
+    if (url.endsWith("api/auth/session")) return json({ id: me, username: "citizen" });
+    if (url.endsWith("api/clips/presign")) return json({ uploadUrl: "https://signed.example/put", url: "https://public.example/clip.mp4", key: "clips/abc" });
     if (url.endsWith("api/clips/confirm")) return json(confirm);
     return new Response("{}", { status: 404 });
   }));
@@ -51,22 +51,25 @@ describe("direct clip transport", () => {
     const progress = vi.fn();
     const result = await uploadClip(original, { title: "Mon clip", durationSec: 61 }, new AbortController().signal, progress, { expectedOwner: 7 });
     expect(fetches.find(f => f.url.endsWith("presign"))!.body).toEqual({
-      filename: "voice.mp4", title: "Mon clip", contentType: "video/mp4", size: 10, durationSec: 61, expectedOwnerId: 7,
+      filename: "voice.mp4", title: "Mon clip", contentType: "video/mp4", size: 10, durationSec: 61, ownerId: 7,
     });
+    for (const call of fetches.filter(f => f.url.endsWith("presign") || f.url.endsWith("confirm"))) {
+      expect(call.init).toMatchObject({ method: "POST", credentials: "include", headers: { "Content-Type": "application/json" } });
+    }
     expect(puts).toHaveLength(1);
     expect(puts[0]).toMatchObject({ url: "https://signed.example/put", method: "PUT" });
     expect(puts[0].body).toBe(original);
     expect(puts[0].headers).toEqual({ "Content-Type": "video/mp4", "If-None-Match": "*" });
     expect(progress).toHaveBeenCalledWith(50, 5, 10);
-    expect(fetches.find(f => f.url.endsWith("confirm"))!.body).toEqual({ key: "clips/abc", expectedOwnerId: 7 });
-    expect(result).toMatchObject({ code: "HELX-123456", name: "Mon clip" });
+    expect(fetches.find(f => f.url.endsWith("confirm"))!.body).toEqual({ key: "clips/abc", ownerId: 7 });
+    expect(result).toMatchObject({ code: "HELX-123456", name: "Mon clip", url: "https://public.example/confirmed.mp4" });
   });
 
   it("sends a 171 MiB original file directly without proxying bytes through API", async () => {
     const { puts, fetches } = setup();
     const original = file();
     Object.defineProperty(original, "size", { value: 171 * 1024 ** 2 });
-    await uploadClip(original, { title: "Large clip", durationSec: 61 }, new AbortController().signal, () => {}, { expectedOwner: 7 });
+    await uploadClip(original, { title: "Large clip", durationSec: 30 * 3600 }, new AbortController().signal, () => {}, { expectedOwner: 7 });
     expect(puts).toHaveLength(1);
     expect(puts[0].body).toBe(original);
     expect(puts[0].url).toBe("https://signed.example/put");
@@ -108,6 +111,15 @@ describe("direct clip transport", () => {
     await expect(uploadClip(file(), { title: "t", durationSec: 61 }, new AbortController().signal, () => {}, { expectedOwner: 7 })).rejects.toThrow();
   });
 
+  it.each([
+    { clip: { code: "HELX-123456" }, url: "https://public.example/a.mp4" },
+    { ok: true, clip: { code: "HELX-123456" } },
+    { ok: true, clip: { code: "HELX-123456" }, url: "http://public.example/a.mp4" },
+  ])("rejects incomplete or unsafe confirmation receipts", async confirm => {
+    setup({ confirm: confirm as never });
+    await expect(uploadClip(file(), { title: "t", durationSec: 61 }, new AbortController().signal, () => {}, { expectedOwner: 7 })).rejects.toThrow();
+  });
+
   it("blocks oversize files with a generic message before any request", async () => {
     const { fetches } = setup();
     const big = file();
@@ -116,4 +128,37 @@ describe("direct clip transport", () => {
     expect(fetches).toHaveLength(0);
     expect(FILE_TOO_LARGE_MESSAGE).not.toMatch(/GiB|\d/);
   });
+});
+
+it("reports each real upload stage in order", async () => {
+  setup(); const onStage = vi.fn();
+  await uploadClip(file(), { title: "t", durationSec: 60 }, new AbortController().signal, () => {}, { expectedOwner: 7, onStage });
+  expect(onStage.mock.calls.map(([stage]) => stage)).toEqual(["session", "presign", "storage", "confirm"]);
+});
+
+it("aborts an idle R2 PUT after 90 seconds without confirming or logging signed URLs", async () => {
+  vi.useFakeTimers();
+  const diagnostic = vi.spyOn(console, "error").mockImplementation(() => {});
+  const { fetches, puts } = setup({ hold: true });
+  const pending = uploadClip(file(), { title: "t", durationSec: 60 }, new AbortController().signal, () => {}, { expectedOwner: 7 });
+  const rejected = expect(pending).rejects.toThrow(/90 s/);
+  await vi.advanceTimersByTimeAsync(STORAGE_IDLE_TIMEOUT_MS + 1);
+  await rejected;
+  expect(puts).toHaveLength(1);
+  expect(fetches.some(f => f.url.endsWith("confirm"))).toBe(false);
+  expect(diagnostic).toHaveBeenCalledWith("[clip-upload]", { stage: "storage", status: null, failure: "Error" });
+  expect(JSON.stringify(diagnostic.mock.calls)).not.toContain("signed.example");
+});
+
+it("bounds a session request and keeps it same-origin", async () => {
+  vi.useFakeTimers();
+  const request = vi.fn((url: string, init: RequestInit) => new Promise((_, reject) => {
+    init.signal!.addEventListener("abort", () => reject(init.signal!.reason), { once: true });
+  }));
+  vi.stubGlobal("fetch", request);
+  const rejected = expect(currentUploadOwner()).rejects.toThrow(/30 s/);
+  await vi.advanceTimersByTimeAsync(API_TIMEOUT_MS + 1);
+  await rejected;
+  expect(request.mock.calls[0][0]).toBe("/api/auth/session");
+  expect(request.mock.calls[0][1]).toMatchObject({ credentials: "include", cache: "no-store" });
 });
