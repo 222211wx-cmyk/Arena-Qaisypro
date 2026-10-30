@@ -83,6 +83,7 @@ export default function Login({ messagesEntry = false, returnTo }: { messagesEnt
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [authenticatedHere, setAuthenticatedHere] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -91,8 +92,9 @@ export default function Login({ messagesEntry = false, returnTo }: { messagesEnt
     setIsLoading(true);
     try {
        await login(username.trim(), password, rememberMe);
-      if (destination) setLocation(destination);
-      else setLocation("/dashboard");
+      // Navigate only from a render that sees the committed server identity.
+      // Wouter navigation is external to React and can otherwise race setUser.
+      setAuthenticatedHere(true);
     } catch (err: unknown) {
       setError(err instanceof Error && err.message.includes("HTTP 401") ? ({ar:"تعذر الدخول بهذه البيانات. تحقق من البريد أو اسم اللاعب وكلمة المرور، أو استعد حسابك. يمكنك المتابعة كزائر دون تسجيل.",en:"Those sign-in details were not accepted. Check your email or player name and password, or recover your account. You can keep exploring without signing in.",fr:"Identifiants refusés. Vérifiez votre e-mail ou nom de joueur et votre mot de passe, ou récupérez votre compte. Vous pouvez continuer sans connexion.",es:"Datos no aceptados. Comprueba tus datos o recupera tu cuenta. Puedes seguir explorando sin iniciar sesión.",de:"Anmeldedaten nicht akzeptiert. Prüfe deine Daten oder stelle dein Konto wieder her. Du kannst ohne Anmeldung weiter entdecken."})[lang] : err instanceof Error ? err.message : copy.authFailed);
     } finally {
@@ -110,7 +112,7 @@ export default function Login({ messagesEntry = false, returnTo }: { messagesEnt
   };
 
   // A restored cookie needs no second login; keep the room/call intent intact.
-  if (user && destination) return <Redirect to={destination} replace />;
+  if (user && (destination || authenticatedHere)) return <Redirect to={destination ?? "/dashboard"} replace />;
 
   return (
     <div
