@@ -37,7 +37,7 @@ test('original routes remain unchanged apart from restoring direct clip presign'
   assert.ok(routes(runtime).includes(added));
   const sessionAlias = 'router4.get(["/auth/me", "/auth/session"], async (req, res) => {';
   assert.ok(routes(runtime).includes(sessionAlias));
-  assert.deepEqual(routes(runtime).filter(route => route !== added).map(route => route === sessionAlias ? 'router4.get("/auth/me", async (req, res) => {' : route), routes(original));
+  assert.deepEqual(routes(runtime).filter(route => route !== added && !['app.use(apiAliases);', 'app.use(apiNotFound);', 'app.use(apiError);'].includes(route)).map(route => route === sessionAlias ? 'router4.get("/auth/me", async (req, res) => {' : route), routes(original));
   const config = JSON.parse(readFileSync('vercel.json'));
   assert.deepEqual(config.rewrites[0], { source: '/api/:path*', destination: '/api/original' });
 });
@@ -81,6 +81,7 @@ test('production cold start and public HTTP route perform no DB queries or exter
       fs[method] = () => { throw new Error('Unexpected application filesystem write: '+method); };
     }
     syncBuiltinESMExports();
+    await import('./.original-backend/runtime.mjs');
     const { default: server } = await import('./api/original.js');
     const playback = await globalThis.__clipPlayback('r2:clips/original/7/probe.mp4');
     if (playback.url !== 'https://media.example.test/clips/original/7/probe.mp4' || playback.urlExpiresAt !== null) throw new Error('Public R2 playback not wired');
@@ -127,6 +128,34 @@ test('production cold start and public HTTP route perform no DB queries or exter
         let text=''; res.on('data', chunk => text+=chunk); res.on('end', () => resolve({ status: res.statusCode, text }));
       }).on('error', reject);
     });
+    async function requestJson(path, method = 'GET', body, headers = {}) {
+      return await new Promise((resolve, reject) => {
+        const req = http.request({ host: '127.0.0.1', port: server.address().port, path, method, headers }, res => {
+          let text = ''; res.on('data', chunk => text += chunk);
+          res.on('end', () => resolve({ status: res.statusCode, type: res.headers['content-type'], text }));
+        });
+        req.on('error', reject); req.end(body);
+      });
+    }
+    for (const [path, method, body, headers, status] of [
+      ['/api/health', 'GET', undefined, {}, 200],
+      ['/api/no-such-route', 'GET', undefined, {}, 404],
+      ['/api/login', 'POST', '{}', { 'Content-Type': 'application/json' }, 400],
+      ['/api/auth/login', 'POST', '{bad', { 'Content-Type': 'application/json' }, 400],
+      ['/api/clips?limit=0', 'GET', undefined, {}, 400],
+      ['/api/register', 'POST', '{}', { 'Content-Type': 'application/json' }, 400],
+      ['/api/clips?limit=1', 'GET', undefined, {}, 503],
+    ]) {
+      const response = await requestJson(path, method, body, headers);
+      if (response.status !== status || !response.type?.includes('application/json')) throw new Error('JSON route failed: ' + JSON.stringify({path, ...response}));
+      JSON.parse(response.text);
+    }
+    // A stale session cookie fails in middleware, before the login route.
+    const { default: signature } = await import('./.original-backend/node_modules/cookie-signature/index.js');
+    const cookie = 'connect.sid=' + encodeURIComponent('s:' + signature.sign('expired-session', process.env.SESSION_SECRET));
+    const storeFailure = await requestJson('/api/login', 'POST', '{}', { Cookie: cookie, 'Content-Type': 'application/json' });
+    if (storeFailure.status !== 500 || !storeFailure.type?.includes('application/json') || JSON.parse(storeFailure.text).code !== 'API_UNAVAILABLE' || storeFailure.text.includes('Unexpected SQL')) throw new Error('Session store error escaped JSON boundary: ' + JSON.stringify(storeFailure));
+    globalThis.__queries = 0; // The intentional store failure above was not startup activity.
     const sessionResult = await new Promise((resolve, reject) => {
       http.get({ host:'127.0.0.1', port:server.address().port, path:'/api/auth/session' }, res => {
         res.resume(); res.on('end', () => resolve(res.statusCode));
@@ -179,4 +208,25 @@ test('hosted pool uses only production DATABASE_URL and explicit TLS, no guessed
  assert.ok(runtime.includes('DATABASE_URL_MISSING'));
  assert.ok(!runtime.includes('WHERE c.is_public = true'));
  assert.ok(!runtime.includes('function autoSeedTestUsers'));
+});
+
+test('missing database configuration returns JSON instead of a platform startup error', () => {
+  const env = { ...process.env, NODE_ENV: 'production' };
+  delete env.DATABASE_URL;
+  const probe = spawnSync(process.execPath, ['--input-type=module', '-e', `
+    import http from 'node:http';
+    const { default: server } = await import('./api/original.js');
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    for (const path of ['/api/health', '/api/clips', '/api/login']) {
+      const result = await new Promise((resolve, reject) => {
+        http.get({ host: '127.0.0.1', port: server.address().port, path }, res => {
+          let text = ''; res.on('data', chunk => text += chunk);
+          res.on('end', () => resolve({ status: res.statusCode, type: res.headers['content-type'], text }));
+        }).on('error', reject);
+      });
+      if (result.status !== 500 || !result.type.includes('application/json') || JSON.parse(result.text).code !== 'API_STARTUP_FAILED') throw new Error(JSON.stringify(result));
+    }
+    await new Promise(resolve => server.close(resolve));
+  `], { encoding: 'utf8', timeout: 10000, env });
+  assert.equal(probe.status, 0, probe.stdout + probe.stderr);
 });

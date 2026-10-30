@@ -21,6 +21,12 @@ function replaceBlock(start, end, replacement) {
   runtime = runtime.slice(0, a) + replacement + runtime.slice(b);
 }
 
+// Catch middleware errors as well as route failures; Express's default error
+// and not-found handlers otherwise return HTML (including session-store errors).
+runtime = "import { apiAliases, apiNotFound, apiError } from './server/api-json.mjs';\n" + runtime;
+replaceOnce('app.set("trust proxy", 1);', 'app.set("trust proxy", 1);\napp.use(apiAliases);');
+replaceOnce('app.use("/api", routes_default);', 'app.use("/api", routes_default);\napp.use(apiNotFound);\napp.use(apiError);');
+
 // Alias the original database-backed, credential-epoch checked session handler.
 // Never use the separate legacy auth adapter or trust a browser account object.
 replaceOnce('router4.get("/auth/me", async (req, res) => {',
