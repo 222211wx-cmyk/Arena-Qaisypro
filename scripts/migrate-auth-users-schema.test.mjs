@@ -29,6 +29,12 @@ test('does not overwrite existing balance or other fields',async()=>{
   const client=database([...identity,{name:'balance',type:'integer'}]);await migrateAuthUsersSchema(client);
   assert.ok(!client.queries.some(sql=>sql.startsWith('ALTER') && sql.includes(' balance ')));
 });
+test('preserves legacy timezone-naive creation metadata without rewriting it',async()=>{
+  const client=database([...identity,{name:'created_at',type:'timestamp without time zone'}]);
+  await migrateAuthUsersSchema(client);
+  assert.ok(!client.queries.some(sql=>sql.startsWith('ALTER') && sql.includes(' created_at ')));
+  assert.equal(client.queries.at(-1),'COMMIT');
+});
 test('missing identity or incompatible column type rolls back before adding fields',async()=>{
   for(const columns of [identity.filter(row=>row.name!=='password_hash'),[...identity,{name:'birth_date',type:'text'}]]) {
     const client=database(columns);await assert.rejects(migrateAuthUsersSchema(client),/incompatible/);

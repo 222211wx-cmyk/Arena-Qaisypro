@@ -37,12 +37,15 @@ export async function migrateAuthUsersSchema(client) {
     await client.query('SELECT pg_advisory_xact_lock(782341901)');
     const { rows } = await client.query(columnsQuery);
     const columns = new Map(rows.map(row => [row.name, row.type]));
-    console.log('Existing users schema columns:', [...columns.keys()].sort().join(', '));
+    console.log('Existing users schema:', JSON.stringify(Object.fromEntries(columns)));
     for (const [name, type] of Object.entries({id:'integer',username:'text',email:'text',password_hash:'text',credential_epoch:'integer'})) {
       if (columns.get(name) !== type) throw new Error(`Required identity column incompatible: ${name}`);
     }
     for (const [name, definition] of Object.entries(missingUserColumns)) {
-      if (columns.has(name) && columns.get(name) !== expectedType(definition)) {
+      // Older deployments used timezone-naive created_at. Preserve that
+      // metadata column; it is not used to authorize identity or age.
+      const legacyCreatedAt = name === 'created_at' && columns.get(name) === 'timestamp without time zone';
+      if (columns.has(name) && columns.get(name) !== expectedType(definition) && !legacyCreatedAt) {
         throw new Error(`Existing profile column incompatible: ${name}`);
       }
     }

@@ -8,7 +8,13 @@ import { fileURLToPath } from 'node:url';
 if (process.env.ARENA_MIGRATE_CREDENTIAL_EPOCH === '1') {
   const { runCredentialEpochMigration } = await import('./migrate-auth-credential-epoch.mjs');
   try { await runCredentialEpochMigration(); }
-  catch { throw new Error('Auth schema migration failed; deployment stopped. Check database schema/access.'); }
+  catch (error) {
+    // Emit only our bounded schema diagnostics, never a driver error/SQL/value.
+    if (/^(Required identity column incompatible:|Existing profile column incompatible:|Existing session table incompatible;|Session sid uniqueness required)/.test(error?.message ?? '')) {
+      console.error(error.message);
+    }
+    throw new Error('Auth schema migration failed; deployment stopped. Check database schema/access.');
+  }
 }
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
