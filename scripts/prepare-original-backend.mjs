@@ -31,7 +31,7 @@ runtime = "import { createClipPresign, publicClipUrl } from './server/clip-r2.mj
 replaceOnce('router55.post("/clips/confirm", async (req, res) => {',
   'router55.post("/clips/presign", createClipPresign({ pool, r2Config, resolveClipUploadType, clipDownloadExtension, validateClipDisplayTitle, ClipUploadError, logger }));\nrouter55.post("/clips/confirm", async (req, res) => {');
 replaceOnce('if (req.body?.expectedOwnerId !== void 0 && req.body.expectedOwnerId !== req.session.userId) {',
-  'if ((req.body?.ownerId !== void 0 && req.body.ownerId !== req.session.userId) || (req.body?.expectedOwnerId !== void 0 && req.body.expectedOwnerId !== req.session.userId)) {');
+  'if ((req.body?.ownerId != null && req.body.ownerId !== req.session.userId) || (req.body?.expectedOwnerId != null && req.body.expectedOwnerId !== req.session.userId)) {');
 // Only the direct-confirm receipt gets the public media URL. Preserve the
 // publication metadata expected by the Vite client and idempotent retry path.
 {

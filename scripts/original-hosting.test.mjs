@@ -25,7 +25,7 @@ test('original archive is unchanged and protection removes destructive startup',
   assert.ok(runtime.includes('req.body?.email'));
   assert.ok(runtime.includes('res.json({ ...finalClipReceipt(clip), url: publicClipUrl(r2Reference(key2)) });'));
   assert.ok(runtime.includes('res.json({ ...finalClipReceipt(existing.rows[0]), url: publicClipUrl(r2Reference(key2)) });'));
-  assert.ok(runtime.includes('req.body?.ownerId !== void 0 && req.body.ownerId !== req.session.userId'));
+  assert.ok(runtime.includes('req.body?.ownerId != null && req.body.ownerId !== req.session.userId'));
   assert.ok(runtime.includes('const bucket = process.env.R2_BUCKET?.trim();'));
   assert.ok(!runtime.includes('(process.env.R2_BUCKET_NAME || process.env.R2_BUCKET)?.trim()'));
   assert.ok(runtime.includes('const existing = await db.select().from(usersTable).where(sql`LOWER(${usersTable.username}) = LOWER(${username})`).limit(1)'));
@@ -94,9 +94,11 @@ test('production cold start and public HTTP route perform no DB queries or exter
       globalThis.__clipUploadFence({ session, body }, response, () => { throw new Error('Owner fence bypassed'); });
       if (actualStatus !== status) throw new Error('Confirmation owner fence failed');
     }
-    let ownerAllowed = false;
-    globalThis.__clipUploadFence({ session: { userId: 7 }, body: { ownerId: 7 } }, { set() {} }, () => { ownerAllowed = true; });
-    if (!ownerAllowed) throw new Error('Authenticated citizen blocked');
+    for (const ownerId of [7, null, undefined]) {
+      let ownerAllowed = false;
+      globalThis.__clipUploadFence({ session: { userId: 7 }, body: { ownerId } }, { set() {} }, () => { ownerAllowed = true; });
+      if (!ownerAllowed) throw new Error('Authenticated citizen blocked');
+    }
     // Real server publication policy: inclusive minute minimum, no duration ceiling.
     for (const seconds of [60, 61, 26 * 3600, 365 * 24 * 3600]) {
       if (globalThis.__clipDurationSeconds(seconds, 'video/mp4') !== seconds) throw new Error('Unexpected duration ceiling');
