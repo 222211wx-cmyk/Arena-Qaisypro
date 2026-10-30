@@ -527,12 +527,20 @@ describe("Reels natural-end progression", () => {
     expect(HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled();
   });
 });
-it('defaults to metadata cards and locally hides a clip without deleting it',async()=>{
- window.history.replaceState(null,'','/clips');
+it('locally hides an explicit grid card without deleting it',async()=>{
+ window.history.replaceState(null,'','/clips?view=grid');
  vi.stubGlobal('fetch',vi.fn(async(url:string)=>url.includes('/auth/me')?Response.json({},{status:401}):Response.json({clips:[feedClip(21)],hasMore:false})));
  controller=mountReels(document.getElementById('root')!,{onOpenComposer:vi.fn()});
  await vi.waitFor(()=>expect(document.querySelector('.reels-grid-cell')).not.toBeNull());
  expect(document.querySelector('video')).toBeNull();expect(document.querySelector('.reels-grid-cell')?.textContent).toContain('Lire');
  document.querySelector<HTMLButtonElement>('.reels-grid-dismiss')!.click();expect(document.querySelector('.reels-grid-item')).toBeNull();
  expect(vi.mocked(fetch).mock.calls.some(([,opts])=>opts?.method==='DELETE')).toBe(false);
+});
+
+it("defaults to the active full-frame clip rather than the grid", async () => {
+  window.history.replaceState(null, "", "/clips");
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => url.includes("/auth/me") ? Response.json({}, { status: 401 }) : Response.json({ clips: [feedClip(21)], hasMore: false })));
+  controller = mountReels(document.getElementById("root")!, { onOpenComposer: vi.fn() });
+  await vi.waitFor(() => expect(document.querySelector(".reels-slide")).not.toBeNull());
+  expect(document.querySelector(".reels-grid-view")).toBeNull();
 });

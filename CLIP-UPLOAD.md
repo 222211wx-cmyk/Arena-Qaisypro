@@ -13,8 +13,9 @@ without editing the archive or adding a Next.js route that would not be served.
    in the existing `r2_clip_uploads` table and returns `{ url, uploadUrl, key }` where `uploadUrl` is the one-hour signed PUT URL and `url` is the public
    display URL from `getPublicUrl(key)`. The browser PUTs only to `uploadUrl`;
    a display URL returned here is not proof that the object exists or is published.
-   JSON initiation includes filename, contentType, size, title and ownerId; the
+   JSON initiation includes filename, contentType, size, title and an optional ownerId; the
    authenticated server session, never the ownerId alone, determines ownership.
+   Null/omitted browser ownerId is accepted only with a verified server session.
    The older expectedOwnerId field remains supported and fenced for compatibility.
 3. The browser sends the original File directly to R2, with its exact Content-Type
    and `If-None-Match: *`. The signature binds size, type and create-only behavior.
@@ -77,3 +78,35 @@ Before production rollout, use a preview with its own configured database/R2
 resources and a test citizen account to verify presign → browser PUT → confirm →
 feed → playback. Local mocks and a READY build do not prove live bucket CORS,
 object availability, credentials, schema compatibility or end-to-end publication.
+
+## Stalled transfers and grid recovery
+
+The browser shows session → presign → storage → confirm separately. Each API
+request has a 30-second deadline; storage aborts after 90 seconds without upload
+progress (not a total-duration cap). A network error may mean CORS, connectivity
+or an expired signature: only a browser Network trace can distinguish them.
+Console diagnostics contain stage/status/error class, never signed URLs or cookies.
+These browser diagnostics are not automatically shipped into Vercel runtime logs.
+The session request is same-origin on each hosting domain; cookies are not shared
+between Replit, preview and production. Each domain requires its own sign-in.
+
+`/clips` opens the active full-frame reel by default; `/clips?view=grid` explicitly
+opts into the three-column grid. Browser native fullscreen remains user-initiated.
+Grid and search cards have isolated containing boxes, cover-fit posters and gaps.
+This does not migrate missing old media or repair legacy object provenance.
+
+### Cloudflare operator step (not applied by a Vercel deployment)
+
+Cloudflare → R2 object storage → gdna-arena → Settings → CORS Policy →
+Add CORS policy → JSON → Save. Review/merge any existing rules first. Use
+`docs/r2-cors-test.json` for the requested temporary all-origin test; afterwards
+replace `*` with the exact production origins (including www) and required preview
+origins. CORS does not grant unsigned PUT access or replace authentication.
+
+Source: https://developers.cloudflare.com/r2/buckets/cors/
+
+Verify in the browser on the actual signed-in app origin: OPTIONS permits PUT,
+Content-Type and If-None-Match; PUT returns 2xx; confirm returns ok:true and clip
+metadata; feed/playback can then read the published object. Never share a signed
+URL or a HAR containing cookies or credentials. A successful presign alone is not
+an end-to-end upload test.

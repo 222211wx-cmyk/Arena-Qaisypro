@@ -49,8 +49,8 @@ export function createClipPresign({ pool, r2Config, resolveClipUploadType,
     res.set('Cache-Control', 'no-store');
     const userId = req.session?.userId;
     if (!Number.isSafeInteger(userId) || userId <= 0) return res.status(401).json({ error: 'يجب تسجيل الدخول' });
-    if ((req.body?.ownerId !== undefined && req.body.ownerId !== userId) ||
-        (req.body?.expectedOwnerId !== undefined && req.body.expectedOwnerId !== userId)) {
+    if ((req.body?.ownerId != null && req.body.ownerId !== userId) ||
+        (req.body?.expectedOwnerId != null && req.body.expectedOwnerId !== userId)) {
       return res.status(403).json({ error: 'تغير الحساب؛ اختر الملف مجدداً' });
     }
     try {
@@ -64,8 +64,7 @@ export function createClipPresign({ pool, r2Config, resolveClipUploadType,
       const rawType = typeof body.contentType === 'string' ? body.contentType : '';
       const contentType = resolveClipUploadType(rawType, filename);
       const duration = body.durationSec == null ? 0 : body.durationSec;
-      if ((body.ownerId === undefined && body.expectedOwnerId === undefined) ||
-          !title || !filename || filename.length > 1024 || !contentType ||
+      if (!title || !filename || filename.length > 1024 || !contentType ||
           !Number.isSafeInteger(size) || size <= 0 || size > MAX_DIRECT_CLIP_BYTES ||
           typeof duration !== 'number' || !Number.isFinite(duration) || duration < 0) {
         return res.status(400).json({ error: 'Invalid clip upload metadata' });

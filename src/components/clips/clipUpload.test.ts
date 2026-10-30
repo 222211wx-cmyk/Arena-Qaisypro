@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FILE_TOO_LARGE_MESSAGE, MAX_CLIP_BYTES, uploadClip } from "./clipUpload";
+import { FILE_TOO_LARGE_MESSAGE, MAX_CLIP_BYTES, API_TIMEOUT_MS, STORAGE_IDLE_TIMEOUT_MS, currentUploadOwner, uploadClip } from "./clipUpload";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 type Sent = { url: string; method: string; body: unknown; headers: Record<string, string> };
 
@@ -128,4 +128,37 @@ describe("direct clip transport", () => {
     expect(fetches).toHaveLength(0);
     expect(FILE_TOO_LARGE_MESSAGE).not.toMatch(/GiB|\d/);
   });
+});
+
+it("reports each real upload stage in order", async () => {
+  setup(); const onStage = vi.fn();
+  await uploadClip(file(), { title: "t", durationSec: 60 }, new AbortController().signal, () => {}, { expectedOwner: 7, onStage });
+  expect(onStage.mock.calls.map(([stage]) => stage)).toEqual(["session", "presign", "storage", "confirm"]);
+});
+
+it("aborts an idle R2 PUT after 90 seconds without confirming or logging signed URLs", async () => {
+  vi.useFakeTimers();
+  const diagnostic = vi.spyOn(console, "error").mockImplementation(() => {});
+  const { fetches, puts } = setup({ hold: true });
+  const pending = uploadClip(file(), { title: "t", durationSec: 60 }, new AbortController().signal, () => {}, { expectedOwner: 7 });
+  const rejected = expect(pending).rejects.toThrow(/90 s/);
+  await vi.advanceTimersByTimeAsync(STORAGE_IDLE_TIMEOUT_MS + 1);
+  await rejected;
+  expect(puts).toHaveLength(1);
+  expect(fetches.some(f => f.url.endsWith("confirm"))).toBe(false);
+  expect(diagnostic).toHaveBeenCalledWith("[clip-upload]", { stage: "storage", status: null, failure: "Error" });
+  expect(JSON.stringify(diagnostic.mock.calls)).not.toContain("signed.example");
+});
+
+it("bounds a session request and keeps it same-origin", async () => {
+  vi.useFakeTimers();
+  const request = vi.fn((url: string, init: RequestInit) => new Promise((_, reject) => {
+    init.signal!.addEventListener("abort", () => reject(init.signal!.reason), { once: true });
+  }));
+  vi.stubGlobal("fetch", request);
+  const rejected = expect(currentUploadOwner()).rejects.toThrow(/30 s/);
+  await vi.advanceTimersByTimeAsync(API_TIMEOUT_MS + 1);
+  await rejected;
+  expect(request.mock.calls[0][0]).toBe("/api/auth/session");
+  expect(request.mock.calls[0][1]).toMatchObject({ credentials: "include", cache: "no-store" });
 });

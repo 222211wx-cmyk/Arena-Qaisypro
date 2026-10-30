@@ -331,13 +331,14 @@ export function reelsShellCss(palette: Palette, space: string): string {
     display:flex;align-items:center;justify-content:center;gap:calc(${space} * 3);
   }
   .reels-grid{
-    display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:2px;
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(${space} * 3);padding:calc(${space} * 3);flex-shrink:0;align-items:start;
   }
-  .reels-grid-item{position:relative;aspect-ratio:9/16;overflow:hidden;background:${palette.card}}
+  .reels-grid-item{position:relative;isolation:isolate;min-width:0;aspect-ratio:9/16;overflow:hidden;background:${palette.card}}
   .reels-grid-cell{
-    position:absolute;inset:0;overflow:hidden;
+    position:relative;display:block;min-width:0;width:100%;aspect-ratio:9/16;overflow:hidden;isolation:isolate;
     background:${palette.card};border:0;padding:0;cursor:pointer;
   }
+  .reels-grid-item > .reels-grid-cell{position:absolute;inset:0;height:100%;z-index:0}
   .reels-grid-dismiss{position:absolute;top:6px;left:6px;z-index:3;background:#111;color:#fff}
   .reels-grid-cell img{width:100%;height:100%;object-fit:cover;display:block}
   .reels-grid-cell-fallback{
@@ -345,7 +346,7 @@ export function reelsShellCss(palette: Palette, space: string): string {
     color:${palette.mutedForeground};font-size:.75rem;padding:calc(${space} * 2);text-align:center;
   }
   .reels-grid-cell-meta{
-    position:absolute;left:0;right:0;bottom:0;
+    position:absolute;left:0;right:0;bottom:0;z-index:1;overflow-wrap:anywhere;
     padding:calc(${space} * 3) calc(${space} * 2) calc(${space} * 2);
     background:linear-gradient(to top, var(--reels-scrim-strong), transparent);
     color:var(--reels-on-media);font-size:.6875rem;display:grid;gap:calc(${space} * 1);text-align:start;
@@ -372,7 +373,7 @@ export function reelsShellCss(palette: Palette, space: string): string {
     border:1px solid ${palette.input};border-radius:9999px;padding:calc(${space} * 3) calc(${space} * 4);font-size:.95rem;
   }
   .reels-search-input:focus-visible{outline:2px solid ${palette.ring};outline-offset:1px}
-  .reels-search-results{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
+  .reels-search-results{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(${space} * 3);align-content:start;align-items:start}
 
   /* ── Notifications overlay ────────────────────────────────────────────── */
   .reels-notif{

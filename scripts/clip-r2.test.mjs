@@ -80,7 +80,7 @@ test('rejects anonymous uploads and account switches before any storage or DB wo
 });
 
 test('validates metadata, type, title and the server-side size limit', async () => {
-  for (const patch of [{ filename: '' }, { filename: 'x'.repeat(1025) }, { contentType: 'text/html' }, { size: 0 }, { size: '42' }, { size: 1.5 }, { size: MAX_DIRECT_CLIP_BYTES + 1 }, { durationSec: -1 }, { durationSec: '60' }, { title: '' }, { title: 'x'.repeat(121) }, { title: undefined }, { ownerId: undefined }]) {
+  for (const patch of [{ filename: '' }, { filename: 'x'.repeat(1025) }, { contentType: 'text/html' }, { size: 0 }, { size: '42' }, { size: 1.5 }, { size: MAX_DIRECT_CLIP_BYTES + 1 }, { durationSec: -1 }, { durationSec: '60' }, { title: '' }, { title: 'x'.repeat(121) }, { title: undefined }]) {
     const f = setup(); Object.assign(f.request.body, patch);
     await f.handle(f.request, f.res); assert.equal(f.res.statusCode, 400, JSON.stringify(patch));
     assert.equal(f.signed.length + f.queries.length, 0);
@@ -121,4 +121,16 @@ test('never lets conflicting owner aliases override the authenticated session', 
   const f = setup(); f.request.body.expectedOwnerId = 8;
   await f.handle(f.request, f.res); assert.equal(f.res.statusCode, 403);
   assert.equal(f.signed.length + f.queries.length, 0);
+});
+
+test('nullable or omitted browser owner still uses a verified server session', async () => {
+  for (const ownerId of [undefined, null]) {
+    const f = setup(); f.request.body.ownerId = ownerId;
+    await f.handle(f.request, f.res);
+    assert.equal(f.res.statusCode, 201);
+    assert.equal(f.queries[0].params[1], 7);
+    const anonymous = setup(); anonymous.request.session = undefined; anonymous.request.body.ownerId = ownerId;
+    await anonymous.handle(anonymous.request, anonymous.res);
+    assert.equal(anonymous.res.statusCode, 401);
+  }
 });
