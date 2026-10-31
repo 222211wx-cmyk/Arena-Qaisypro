@@ -7,8 +7,6 @@ import { announceAccountChange, fetchSharedClipSession, subscribeAccountChanges,
 import {
   uploadClip,
   cancelPendingUploads,
-  MAX_CLIP_BYTES,
-  FILE_TOO_LARGE_MESSAGE,
   type ClipUploadMetadata,
 } from "./components/clips/clipUpload";
 import { readClipDuration } from "./components/clips/readClipDuration";
@@ -365,7 +363,6 @@ form.addEventListener("submit", async event => {
   progress.value = 0;
   status.textContent = `0% — 0 من ${formatBytes(file.size)} — جارٍ التحقق من المدة…`;
   try {
-    if (file.size > MAX_CLIP_BYTES) throw new Error(FILE_TOO_LARGE_MESSAGE);
     const duration = selectedDuration ?? await awaitPendingDurationProbe(operation.signal);
     operation.signal.throwIfAborted();
     if (cachedFile !== file) return;

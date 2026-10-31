@@ -1,3 +1,6 @@
+> Historical implementation notes. Size/pending-quota policy is superseded by
+> [application-quota-removal.md](application-quota-removal.md). No production release is approved.
+
 # Upload recovery — staged release, not a production restoration
 
 ## What this change repairs

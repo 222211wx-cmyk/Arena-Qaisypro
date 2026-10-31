@@ -4,8 +4,6 @@ const { upload, duration, cancelPending } = vi.hoisted(() => ({ upload: vi.fn(),
 vi.mock("./components/clips/clipUpload", () => ({
   uploadClip: upload,
   cancelPendingUploads: cancelPending,
-  MAX_CLIP_BYTES: 5 * 1024 * 1024 * 1024,
-  FILE_TOO_LARGE_MESSAGE: "too-large-generic",
 }));
 vi.mock("./components/clips/readClipDuration", () => ({ readClipDuration: duration }));
 vi.mock("./lib/lightweight-call-boundary", () => ({
@@ -46,15 +44,16 @@ afterEach(() => {
 });
 
 describe("final simple Clip selection", () => {
-  it("retains but blocks a file that is too large with a generic message", async () => {
-    const file = media("too-large.mp4", "video/mp4", 5 * 1024 ** 3 + 1);
+  it("does not impose a byte quota in the composer (simulated selection only)", async () => {
+    const file = media("large.mp4", "video/mp4", 5 * 1024 ** 3 + 1);
+    upload.mockRejectedValueOnce(new Error('simulated storage response'));
     select(file);
-    expect(submit().disabled).toBe(false);
+    await vi.waitFor(() => expect(text('duration-status')).toContain(':'));
     form().requestSubmit();
-    await vi.waitFor(() => expect(text("upload-error")).toBe("too-large-generic"));
+    await vi.waitFor(() => expect(upload).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(text('upload-error')).toBe('simulated storage response'));
     expect(input().files?.[0]).toBe(file);
     expect(submit().disabled).toBe(false);
-    expect(upload).not.toHaveBeenCalled();
   });
 
   it.each(["audio/mpeg", "video/mp4"])("blocks a short %s with the exact requested message", async type => {

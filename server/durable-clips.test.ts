@@ -1,7 +1,7 @@
 // @vitest-environment node
 import {beforeEach,expect,it,vi} from 'vitest';
 // @ts-ignore JavaScript server module
-import {createDurableClips,metadata,publicUrl,MAX_BYTES} from './durable-clips.js';
+import {createDurableClips,metadata,publicUrl} from './durable-clips.js';
 const user={id:'opaque-user',username:'Citizen'};
 const key='clips/original/'+'a'.repeat(32)+'/11111111-1111-4111-8111-111111111111.mp4';
 let query:any,send:any,sign:any,inspect:any,authenticate:any,fence:any,handler:any;
@@ -29,7 +29,7 @@ it('registers the exact production presign path and grants direct storage only a
  expect(insert[1][1]).toBe(user.id);expect(fence).toHaveBeenCalled();expect(sign).toHaveBeenCalled();expect(r.body.key).toMatch(/^clips\/original\/[a-f0-9]{32}\//);
 });
 it('also accepts /api/cli/upload JSON compatibility alias',async()=>{const r=res();await handler(req('/api/cli/upload'),r,vi.fn());expect(r.statusCode).toBe(200);});
-it.each([0,MAX_BYTES+1,-1,1.5])('rejects invalid or oversized bytes %s without signing',async size=>{const r=res();await handler(req(undefined,{filename:'x.mp4',title:'x',contentType:'video/mp4',size}),r,vi.fn());expect(r.statusCode).toBe(400);expect(sign).not.toHaveBeenCalled();});
+it.each([0,Number.MAX_SAFE_INTEGER+1,-1,1.5])('rejects invalid numeric byte metadata %s without signing',async size=>{const r=res();await handler(req(undefined,{filename:'x.mp4',title:'x',contentType:'video/mp4',size}),r,vi.fn());expect(r.statusCode).toBe(400);expect(sign).not.toHaveBeenCalled();});
 it('rejects owner substitution and foreign origin',async()=>{
  for(const kind of ['owner','origin']){const request=req();if(kind==='owner')request.body.expectedOwnerId='other';else request.headers.origin='https://foreign.example';const r=res();await handler(request,r,vi.fn());expect(r.statusCode).toBe(403);}
  expect(sign).not.toHaveBeenCalled();
@@ -72,11 +72,11 @@ it('rolls back the new pending row if signing fails',async()=>{
  expect(r.statusCode).toBe(503);expect(query.mock.calls.at(-1)[0]).toBe('ROLLBACK');
  expect(query.mock.calls.some(([sql]:any)=>sql==='COMMIT')).toBe(false);
 });
-it('returns a real retry delay when active pending slots are full without granting another',async()=>{
+it('does not count or reject an account for having many pending uploads',async()=>{
  const original=query.getMockImplementation();
- query.mockImplementation(async(sql:string,...args:any[])=>sql.startsWith('SELECT count')?{rows:[{count:10}]}:sql.startsWith('SELECT GREATEST')?{rows:[{seconds:120}]}:original(sql,...args));
- const r=res();await handler(req(),r,vi.fn());expect(r.statusCode).toBe(429);expect(r.headers['Retry-After']).toBe('120');
- expect(sign).not.toHaveBeenCalled();expect(query.mock.calls.some(([sql]:any)=>sql.startsWith('INSERT INTO'))).toBe(false);
+ query.mockImplementation(async(sql:string,...args:any[])=>sql.startsWith('SELECT count')?{rows:[{count:100000}]}:original(sql,...args));
+ const r=res();await handler(req(),r,vi.fn());expect(r.statusCode).toBe(200);expect(sign).toHaveBeenCalled();
+ expect(query.mock.calls.some(([sql]:any)=>sql.startsWith('SELECT count'))).toBe(false);
 });
 it('lists only authenticated owner pending keys without requiring storage access',async()=>{
  const original=query.getMockImplementation();
@@ -99,7 +99,6 @@ it('never cancels a confirmed publication',async()=>{
  const original=query.getMockImplementation();query.mockImplementation(async(sql:string,...args:any[])=>sql.includes('FROM vichy_clip_uploads')?{rows:[{...upload,clip_id:clip.id}]}:original(sql,...args));
  const r=res();await handler(req('/api/clips/cancel',{key}),r,vi.fn());expect(r.statusCode).toBe(409);expect(send).not.toHaveBeenCalled();
 });
-it('accepts 512MiB metadata after the explicit database limit migration',()=>{
- expect(metadata({filename:'x.mp4',title:'Long video',contentType:'video/mp4',size:512*1024**2})?.size).toBe(512*1024**2);
- expect(MAX_BYTES).toBe(2*1024**3);
+it.each([104857601,2147483649,20*1024**3])('has no application byte cap at %s bytes (metadata only)',size=>{
+ expect(metadata({filename:'x.mp4',title:'Long video',contentType:'video/mp4',size})?.size).toBe(size);
 });

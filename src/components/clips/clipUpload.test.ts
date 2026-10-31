@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FILE_TOO_LARGE_MESSAGE, MAX_CLIP_BYTES, cancelPendingUploads, uploadClip } from "./clipUpload";
+import { cancelPendingUploads, uploadClip } from "./clipUpload";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -110,13 +110,15 @@ describe("direct clip transport", () => {
     await expect(uploadClip(file(), { title: "t", durationSec: 61 }, new AbortController().signal, () => {}, { expectedOwner: 7 })).rejects.toThrow();
   });
 
-  it("blocks oversize files with a generic message before any request", async () => {
-    const { fetches } = setup();
-    const big = file();
-    Object.defineProperty(big, "size", { value: MAX_CLIP_BYTES + 1 });
-    await expect(uploadClip(big, { title: "t", durationSec: 61 }, new AbortController().signal, () => {}, { expectedOwner: 7 })).rejects.toThrow(FILE_TOO_LARGE_MESSAGE);
+  it.each([104857601,2147483649])('does not impose an application size quota at %s bytes (simulated transport)', async size => {
+    const { puts } = setup();const large=file();Object.defineProperty(large,'size',{value:size});
+    await uploadClip(large,{title:'t',durationSec:61},new AbortController().signal,()=>{},{expectedOwner:7});
+    expect(puts).toHaveLength(1);expect(puts[0].body).toBe(large);
+  });
+  it.each([0,Number.MAX_SAFE_INTEGER+1])('rejects invalid file metadata, not a quota: %s',async size=>{
+    const {fetches}=setup();const invalid=file();Object.defineProperty(invalid,'size',{value:size});
+    await expect(uploadClip(invalid,{title:'t',durationSec:61},new AbortController().signal,()=>{},{expectedOwner:7})).rejects.toThrow();
     expect(fetches).toHaveLength(0);
-    expect(FILE_TOO_LARGE_MESSAGE).toContain("2GiB");
   });
 });
 

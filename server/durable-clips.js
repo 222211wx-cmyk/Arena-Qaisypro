@@ -6,7 +6,6 @@ import {S3Client,PutObjectCommand,HeadObjectCommand,GetObjectCommand,DeleteObjec
 import {getSignedUrl} from '@aws-sdk/s3-request-presigner';
 import {authHandler,lockPublicationSession} from './auth.js';
 
-export const MAX_BYTES=2*1024*1024*1024;
 const TYPES=new Map([['video/mp4','.mp4'],['video/webm','.webm'],['video/quicktime','.mov'],['audio/mpeg','.mp3'],['audio/mp4','.m4a'],['audio/wav','.wav'],['audio/x-wav','.wav'],['audio/ogg','.ogg'],['audio/webm','.webm']]);
 let db;
 let titleAllowed=async()=>false;
@@ -27,7 +26,7 @@ export function metadata(body){
     const extension=filename.split('.').at(-1)?.toLowerCase();
     type=({mp4:'video/mp4',webm:'video/webm',mov:'video/quicktime',m4a:'audio/mp4',mp3:'audio/mpeg',wav:'audio/wav',ogg:'audio/ogg'})[extension]||'';
   }
-  if(!title||title.length>200||/[\u0000-\u001f]/.test(title)||!filename||filename.length>1024||!TYPES.has(type)||!Number.isSafeInteger(body.size)||body.size<=0||body.size>MAX_BYTES)return null;
+  if(!title||title.length>200||/[\u0000-\u001f]/.test(title)||!filename||filename.length>1024||!TYPES.has(type)||!Number.isSafeInteger(body.size)||body.size<=0)return null;
   return {title,filename,type,size:body.size,extension:TYPES.get(type),uploadType:body.contentType||'application/octet-stream'};
 }
 export function publicUrl(key,base){if(!/^clips\/original\/[a-f0-9]{32}\/[a-f0-9-]{36}\.[a-z0-9]+$/.test(key))throw new Error('Invalid object reference');return base+'/'+key.split('/').map(encodeURIComponent).join('/');}
@@ -97,19 +96,14 @@ export function createDurableClips({pool=database,storage=config,sign=getSignedU
       if(req.body?.expectedOwnerId!=null&&req.body.expectedOwnerId!==user.id)return res.status(403).json({error:'Account changed; select the file again'});
       cfg=storage();
       if(presign){
-        const data=metadata(req.body);if(!data)return res.status(400).json({error:'Audio/video up to 2GiB with a valid title is required'});
+        const data=metadata(req.body);if(!data)return res.status(400).json({error:'Valid nonempty audio/video metadata and title are required'});
         if(!await moderate(data.title))return res.status(400).json({error:'Publication title rejected'});
         const uploadId=randomUUID(),owner=createHash('sha256').update(String(user.id)).digest('hex').slice(0,32);
         const key=`clips/original/${owner}/${uploadId}${data.extension}`;
-        // A durable session is committed before granting upload capability. Bound per-account limit.
+        // Commit a durable owner session before granting upload capability; no pending-count quota.
         const url=await transaction(database,async client=>{
           if(!await fence(req,client,user.id))throw Object.assign(new Error('Session revoked'),{status:401});
           await client.query('SELECT id FROM users WHERE id=$1 FOR UPDATE',[user.id]);
-          const pending=await client.query("SELECT count(*)::int AS count FROM vichy_clip_uploads WHERE user_id=$1 AND state='pending' AND expires_at>NOW()",[user.id]);
-          if(pending.rows[0].count>=10){
-            const expiry=await client.query("SELECT GREATEST(1,CEIL(EXTRACT(EPOCH FROM MIN(expires_at)-NOW())))::int AS seconds FROM vichy_clip_uploads WHERE user_id=$1 AND state='pending' AND expires_at>NOW()",[user.id]);
-            throw Object.assign(new Error('Pending upload limit'),{status:429,retryAfter:expiry.rows[0]?.seconds||3600});
-          }
           await client.query(`INSERT INTO vichy_clip_uploads(id,user_id,object_key,title,original_name,content_type,size_bytes,expires_at)
             VALUES($1,$2,$3,$4,$5,$6,$7,NOW()+INTERVAL '1 hour')`,[uploadId,user.id,key,data.title,data.filename,data.type,data.size]);
           // Signing failure rolls back the pending row; no unusable slot is committed.
@@ -184,7 +178,6 @@ export function createDurableClips({pool=database,storage=config,sign=getSignedU
     if(byId?.[2]==='by-code')return res.status(200).json({code:clip.code});
     return res.status(200).json(clip);
   }catch(error){
-    if(error?.status===429){res.setHeader('Retry-After',String(error.retryAfter));return res.status(429).json({error:'Too many pending uploads. Cancel unfinished uploads or retry after the indicated delay.',retryAfter:error.retryAfter});}
     console.error('Durable publication unavailable',{path,code:typeof error?.code==='string'?error.code:undefined,name:/^[A-Za-z0-9]+$/.test(error?.name??'')?error.name:undefined,httpStatus:error?.$metadata?.httpStatusCode,transportCode:error?.cause?.code});
     if(error?.status===401)return res.status(401).json({error:'Session revoked. Sign in again.'});
     return res.status(503).json({error:'Publication/storage verification unavailable. Nothing was reported as published.'});

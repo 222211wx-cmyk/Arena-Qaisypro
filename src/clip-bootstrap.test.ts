@@ -57,7 +57,8 @@ describe("ultra-light clip bootstrap", () => {
     expect(clip).not.toMatch(/size-warning|name="purpose"|original-footage|id="rights"/);
     expect(clip).toContain("خاص دقيقة الفوق");
     expect(clip).toContain("readClipDuration");
-    expect(clip).toContain("MAX_CLIP_BYTES");
+    expect(clip).not.toContain("MAX_CLIP_BYTES");
+    expect(clip).not.toContain("FILE_TOO_LARGE_MESSAGE");
     for (const id of ["clip-file-input", "clip-submit", "clip-progress", "clip-status", "clip-error"]) {
       expect(clip).toContain(`data-testid="${id}"`);
     }

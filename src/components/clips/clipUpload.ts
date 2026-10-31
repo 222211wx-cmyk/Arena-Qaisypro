@@ -79,8 +79,6 @@ function putOriginal(url: string, file: File, signal: AbortSignal, onProgress: C
   });
 }
 
-export const MAX_CLIP_BYTES = 2 * 1024 ** 3;
-export const FILE_TOO_LARGE_MESSAGE = "الحد الأقصى لحجم الملف 2GiB — المدة دقيقة على الأقل دون حد زمني مفروض";
 
 /** Transfer original bytes to storage; publish only after server confirmation. */
 export async function uploadClip(
@@ -91,7 +89,8 @@ export async function uploadClip(
   options: { expectedOwner: AccountId },
 ): Promise<PublishedClip> {
   signal.throwIfAborted();
-  if (file.size > MAX_CLIP_BYTES) throw new Error(FILE_TOO_LARGE_MESSAGE);
+  // Numeric integrity is not a product byte quota. Storage protocol limits still apply.
+  if (!Number.isSafeInteger(file.size) || file.size <= 0) throw new Error("ملف فارغ أو حجم ملف غير صالح");
   const owner = await currentUploadOwner(signal);
   if (owner !== options.expectedOwner) {
     throw new Error("Le compte a changé — ce fichier ne sera pas publié avec un autre compte");
@@ -111,7 +110,7 @@ export async function uploadClip(
     await putOriginal(session.url, file, signal, onProgress);
     signal.throwIfAborted();
   } catch (error) {
-    // A failed/cancelled transfer must not consume another pending slot forever.
+    // A failed/cancelled transfer must not leave an unfinished upload behind.
     // Do not reuse the aborted transfer signal. Cleanup is best-effort and bounded;
     // retain the original error if storage or the network is still unavailable.
     const cleanup = new AbortController();

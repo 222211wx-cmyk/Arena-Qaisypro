@@ -1,3 +1,6 @@
+> Historical implementation notes. Size/pending-quota policy is superseded by
+> [application-quota-removal.md](application-quota-removal.md). No production release is approved.
+
 # Durable publication repair
 
 ## Actual incident
