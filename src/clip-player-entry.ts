@@ -1,3 +1,4 @@
+import { isAccountId, type AccountId } from '@/lib/account-id';
 import { tokens } from "@workspace/gdna-ds/tokens";
 import { mountLightweightBackButton } from "./lib/lightweight-back-button";
 import { createLightweightCallBoundary } from "./lib/lightweight-call-boundary";
@@ -122,7 +123,7 @@ function configureMediaSession(clip: ClipByCode, media: HTMLMediaElement) {
 const IDENTITY_TIMEOUT_MS = 8_000;
 
 type Identity =
-  | { status: "authenticated"; accountId: number }
+  | { status: "authenticated"; accountId: AccountId }
   | { status: "anonymous" }
   | { status: "unknown" };
 
@@ -141,7 +142,7 @@ async function resolveIdentity(): Promise<Identity> {
     if (response.status === 401) return { status: "anonymous" };
     if (!response.ok) return { status: "unknown" };
     const me = await response.json().catch(() => null);
-    if (me && Number.isSafeInteger(me.id) && me.id > 0 && typeof me.username === "string") return { status: "authenticated", accountId: me.id };
+    if (me && isAccountId(me.id) && typeof me.username === "string") return { status: "authenticated", accountId: me.id };
     return { status: "unknown" };
   } catch {
     return { status: "unknown" };
@@ -162,7 +163,7 @@ export function renderClipPlayer(code: string) {
   // settles; we await it right before mounting actions to avoid a save race.
   const identityPromise = resolveIdentity();
   let reloading = false;
-  let verifiedAccount: number | null | undefined;
+  let verifiedAccount: AccountId | null | undefined;
   let refreshFlight: Promise<void> | null = null;
   const reloadAccount = () => {
     if (reloading) return;
@@ -229,7 +230,7 @@ export function renderClipPlayer(code: string) {
   const calls = createLightweightCallBoundary(root);
   void identityPromise.then(identity => {
     if (reloading) return;
-    if (identity.status === "authenticated") calls.setAccount(identity.accountId);
+    if (identity.status === "authenticated") calls.setAccount(typeof identity.accountId === "number" ? identity.accountId : null);
     else if (identity.status === "anonymous") calls.setAccount(null);
   });
 
