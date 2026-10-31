@@ -80,6 +80,24 @@ function putOriginal(url: string, file: File, signal: AbortSignal, onProgress: C
 }
 
 
+/** Confirmation is idempotent: transient failures must not repeat the file transfer. */
+export async function confirmClip(key: string, owner: AccountId, signal: AbortSignal) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await postJson(`${import.meta.env.BASE_URL}api/clips/confirm`, { key, expectedOwnerId: owner }, signal);
+    } catch (error) {
+      signal.throwIfAborted();
+      const status = (error as { status?: number }).status;
+      if (attempt >= 2 || status !== undefined && ![502, 503, 504].includes(status)) throw error;
+      await new Promise<void>((resolve, reject) => {
+        const abort = () => { clearTimeout(timer); reject(abortReason(signal)); };
+        const timer = setTimeout(() => { signal.removeEventListener("abort", abort); resolve(); }, 500 * (attempt + 1));
+        signal.addEventListener("abort", abort, { once: true });
+      });
+    }
+  }
+}
+
 /** Transfer original bytes to storage; publish only after server confirmation. */
 export async function uploadClip(
   file: File,
@@ -123,9 +141,7 @@ export async function uploadClip(
   // Never auto-cancel after confirmation starts: a lost response may already
   // correspond to a committed publication.
   signal.throwIfAborted();
-  const body = await postJson(`${import.meta.env.BASE_URL}api/clips/confirm`, {
-    key: session.key, expectedOwnerId: owner,
-  }, signal);
+  const body = await confirmClip(session.key, owner, signal);
   signal.throwIfAborted();
   const clip = body?.clip && typeof body.clip === "object" ? body.clip : null;
   const code = body?.code ?? clip?.code;

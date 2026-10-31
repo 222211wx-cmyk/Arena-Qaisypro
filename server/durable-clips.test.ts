@@ -102,3 +102,11 @@ it('never cancels a confirmed publication',async()=>{
 it.each([104857601,2147483649,20*1024**3])('has no application byte cap at %s bytes (metadata only)',size=>{
  expect(metadata({filename:'x.mp4',title:'Long video',contentType:'video/mp4',size})?.size).toBe(size);
 });
+it('keeps uploaded bytes pending when media inspection times out and permits confirmation retry',async()=>{
+ inspect.mockRejectedValueOnce(new Error('Media inspection timed out'));
+ const failed=res();await handler(req('/api/clips/confirm',{key}),failed,vi.fn());
+ expect(failed.statusCode).toBe(503);expect(failed.body.retryable).toBe(true);
+ expect(query.mock.calls.some(([sql]:any)=>sql.startsWith('INSERT INTO vichy_clips'))).toBe(false);
+ const retried=res();await handler(req('/api/clips/confirm',{key}),retried,vi.fn());
+ expect(retried.statusCode).toBe(200);expect(retried.body.ok).toBe(true);
+});

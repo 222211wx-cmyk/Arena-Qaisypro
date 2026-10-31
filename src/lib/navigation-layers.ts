@@ -1,3 +1,6 @@
+let maxAppDepth = 0;
+export function recordAppDepth(depth: number) { maxAppDepth = Math.max(maxAppDepth, depth); }
+export function resetAppDepth(depth: number) { maxAppDepth = depth; }
 type Layer = { active: () => boolean; back: () => void | (() => void); priority: number };
 const layers = new Map<symbol, Layer>();
 let forwardSteps: { owner: symbol; restore: () => void }[] = [];
@@ -22,5 +25,6 @@ export function closeBackLayer() {
 export function navigateForward() {
   const step = forwardSteps.pop();
   if (step) step.restore();
-  else history.forward();
+  // Forward only to an entry previously tracked by this app.
+  else if (Number(history.state?.__arenaNavigationDepth) < maxAppDepth) history.forward();
 }

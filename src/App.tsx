@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { Toaster } from "@workspace/gdna-ds/components/ui/toaster";
 import { TooltipProvider } from "@workspace/gdna-ds/components/ui/tooltip";
 import { useEffect } from "react";
+import { BookReader } from "@/components/layout/BookReader";
 import { BackButton } from "@/components/layout/back-button";
 import { isMessagesEntryPath, MESSAGES_ENTRY_PATH, messagesReturnPath } from "@/lib/messages-entry";
 
@@ -276,7 +277,7 @@ function Router() {
         </header>
       )}
       </div>
-      <PageWrapper />
+      <BookReader><PageWrapper /></BookReader>
       {!isChoiceEntry && !isMessagesEntry && location !== "/ameeq" && <Footer />}
       <CookieBanner />
       <AgeGate />

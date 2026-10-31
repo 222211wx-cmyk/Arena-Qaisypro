@@ -1,0 +1,31 @@
+import { fireEvent, render, screen, cleanup, act } from '@testing-library/react';
+import { afterEach, expect, it, vi } from 'vitest';
+import { BookReader } from './BookReader';
+vi.mock('wouter',()=>({useLocation:()=>['/learn',vi.fn()]}));
+vi.mock('@/contexts/LangContext',()=>({useLang:()=>({lang:'en'})}));
+afterEach(cleanup);
+it('keeps original content mounted, exposes ×, zoom, contents and fullscreen',async()=>{
+ render(<BookReader><h1>Original chapter</h1><input aria-label="Draft" /></BookReader>);
+ fireEvent.change(screen.getByLabelText('Draft'),{target:{value:'keep me'}});
+ fireEvent.click(screen.getByText('📖 Book reader'));
+ fireEvent.click(screen.getByLabelText('Zoom in'));expect(screen.getByText('125%')).toBeTruthy();
+ fireEvent.click(screen.getByText('Contents'));expect(screen.getAllByText('Original chapter')).toHaveLength(2);
+ fireEvent.click(screen.getByText('Fullscreen'));
+ expect(await screen.findByText('Fullscreen is unavailable in this browser')).toBeTruthy();
+ fireEvent.click(screen.getByLabelText('Close reader'));
+ expect((screen.getByLabelText('Draft') as HTMLInputElement).value).toBe('keep me');
+ expect(screen.getAllByText('Original chapter')).toHaveLength(1);
+});
+it('turns viewport pages, jumps to headings and never changes site history',()=>{
+ render(<BookReader><h1>Chapter</h1><h2>Section two</h2></BookReader>);
+ fireEvent.click(screen.getByText('📖 Book reader'));
+ const viewport=screen.getByLabelText('Book pages');
+ Object.defineProperty(viewport,'clientHeight',{value:500,configurable:true});
+ Object.defineProperty(viewport,'scrollHeight',{value:1500,configurable:true});
+ viewport.scrollTo=vi.fn();
+ act(()=>window.dispatchEvent(new Event('resize')));
+ const push=vi.spyOn(history,'pushState');
+ fireEvent.click(screen.getByText('Next'));expect(viewport.scrollTo).toHaveBeenCalledWith({top:500,behavior:'smooth'});
+ fireEvent.click(screen.getByText('Contents'));fireEvent.click(screen.getAllByText('Section two')[0]);
+ expect(viewport.scrollTo).toHaveBeenCalled();expect(push).not.toHaveBeenCalled();push.mockRestore();
+});
