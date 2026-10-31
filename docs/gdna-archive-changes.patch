@@ -178,7 +178,8 @@
    const encryptedPath = /^\/api\/(?:messages\/rooms\/\d+\/send|communication\/groups)\/?$/i;
 -  return (req,res,next) => (encryptedPath.test(req.path) ? encryptedDelivery : metadataPath.test(req.path) ? multipartMetadata : ordinary)(req,res,next);
 +  return (req,res,next) => (req.path === "/api/gdna/ask" ? gdnaBody : encryptedPath.test(req.path) ? encryptedDelivery : metadataPath.test(req.path) ? multipartMetadata : ordinary)(req,res,next);
- }--- api-server/src/lib/clip-publish.ts
+ }
+--- api-server/src/lib/clip-publish.ts
 +++ api-server/src/lib/clip-publish.ts
 @@ -2,12 +2,12 @@
  import { pool } from "@workspace/db";
@@ -387,6 +388,17 @@
      return result.choices[0]?.message.content ?? "";
    },
    async audit(user, section, mode, reason) {
+--- api-server/src/routes/clip-simple-upload.test.ts
++++ api-server/src/routes/clip-simple-upload.test.ts
+@@ -7,7 +7,7 @@
+ import test from "node:test";
+ import express, { type Request, type Response } from "express";
+ import {
+-  createSimpleClipUploadRouter, SIMPLE_CLIP_MAX_BYTES, SIMPLE_CLIP_TIMEOUT_MS,
++  createSimpleClipUploadRouter, SIMPLE_CLIP_TIMEOUT_MS,
+   type SimpleClipUploadDependencies,
+ } from "./clip-simple-upload.js";
+ import { ClipUploadError } from "../lib/clip-upload-protocol.js";
 --- api-server/src/routes/clip-simple-upload.ts
 +++ api-server/src/routes/clip-simple-upload.ts
 @@ -4,14 +4,12 @@
