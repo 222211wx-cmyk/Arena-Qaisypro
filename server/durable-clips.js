@@ -51,7 +51,8 @@ export function inspectMedia(url){
 async function identity(req,res,optional=false){
   let user=null;
   const proxy={setHeader:(name,value)=>res.setHeader(name,value),status(code){this.statusCode=code;return this;},json(body){if(this.statusCode===200)user=body;else if(!optional) res.status(this.statusCode).json(body);},statusCode:200};
-  await authHandler('me')({...req,method:'GET'},proxy);return user;
+  // IncomingMessage.headers is a prototype getter, not a spreadable own field.
+  await authHandler('me')({method:'GET',headers:req.headers,socket:req.socket},proxy);return user;
 }
 function writable(req){
   if(req.headers['sec-fetch-site']==='cross-site')return false;

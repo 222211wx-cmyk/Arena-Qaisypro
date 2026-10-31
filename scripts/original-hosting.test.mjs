@@ -80,7 +80,7 @@ test('production cold start and public HTTP route perform no DB queries or exter
       }).on('error', reject);
     });
     if (result.status !== 200 || JSON.parse(result.text).status !== 'ok') throw new Error('Original health endpoint failed: '+JSON.stringify(result));
-    for (const [path,method,expected] of [['/api/auth/login','POST',400],['/api/auth/me','GET',401],['/api/clips/presign','GET',405],['/api/cli/upload','GET',405]]) {
+    for (const [path,method,expected] of [['/api/auth/login','POST',400],['/api/auth/me','GET',401],['/api/clips/presign','GET',405],['/api/cli/upload','GET',405],['/api/clips/presign','POST',401]]) {
       const auth = await new Promise((resolve,reject)=>{
         const request=http.request({host:'127.0.0.1',port:server.address().port,path,method,headers:{'Content-Type':'application/json'}},res=>{
           let text='';res.on('data',chunk=>text+=chunk);res.on('end',()=>resolve({status:res.statusCode,text}));
