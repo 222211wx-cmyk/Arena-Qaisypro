@@ -149,3 +149,14 @@ it('does not cancel another account uploads after a cookie owner change',async()
  const {fetches}=setup({me:8});await expect(cancelPendingUploads(7,new AbortController().signal)).rejects.toThrow('compte');
  expect(fetches.some(f=>f.url.endsWith('/cancel'))).toBe(false);
 });
+it('retries transient confirmation without repeating the storage transfer',async()=>{
+ const {puts}=setup();
+ const original=fetch;
+ let confirmations=0;
+ vi.stubGlobal('fetch',vi.fn(async(url:string,init?:RequestInit)=>{
+  if(url.endsWith('api/clips/confirm') && ++confirmations===1)return new Response(JSON.stringify({error:'Temporarily unavailable'}),{status:503});
+  return original(url,init);
+ }));
+ const clip=await uploadClip(file(),{title:'Title',durationSec:68},new AbortController().signal,vi.fn(),{expectedOwner:7});
+ expect(clip.code).toBe('HELX-123456');expect(confirmations).toBe(2);expect(puts).toHaveLength(1);
+});

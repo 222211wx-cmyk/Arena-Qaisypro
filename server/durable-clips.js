@@ -140,7 +140,10 @@ export function createDurableClips({pool=database,storage=config,sign=getSignedU
       if(Number(head.ContentLength)!==Number(upload.size_bytes)||head.Metadata?.upload!==upload.id)return res.status(409).json({error:'Stored file does not match this upload'});
       const readUrl=await sign(cfg.client,new GetObjectCommand({Bucket:cfg.bucket,Key:key}),{expiresIn:120});
       let media;
-      try { media=await inspect(readUrl); } catch { return res.status(422).json({error:'Media verification failed. Use a playable audio/video file lasting at least one minute.'}); }
+      try { media=await inspect(readUrl); } catch (error) {
+        if (/timed out|unavailable/.test(error?.message ?? '')) return res.status(503).json({code:'MEDIA_VERIFICATION_PENDING',retryable:true,error:'File received. Media verification is temporarily unavailable; retry confirmation without uploading again.'});
+        return res.status(422).json({code:'INVALID_MEDIA',retryable:false,error:'Use a playable audio/video file lasting at least one minute.'});
+      }
       const actualType=media.hasVideo?upload.content_type.startsWith('video/')?upload.content_type:'video/mp4':upload.content_type.startsWith('audio/')?upload.content_type:'audio/mp4';
       const published=await transaction(database,async client=>{
         if(!await fence(req,client,user.id))throw Object.assign(new Error('Session revoked'),{status:401});
@@ -180,7 +183,7 @@ export function createDurableClips({pool=database,storage=config,sign=getSignedU
   }catch(error){
     console.error('Durable publication unavailable',{path,code:typeof error?.code==='string'?error.code:undefined,name:/^[A-Za-z0-9]+$/.test(error?.name??'')?error.name:undefined,httpStatus:error?.$metadata?.httpStatusCode,transportCode:error?.cause?.code});
     if(error?.status===401)return res.status(401).json({error:'Session revoked. Sign in again.'});
-    return res.status(503).json({error:'Publication/storage verification unavailable. Nothing was reported as published.'});
+    return res.status(503).json({code:'PUBLICATION_UNAVAILABLE',retryable:true,error:'Publication temporarily unavailable. Retry confirmation; an already published file will not be duplicated.'});
   }finally{cfg?.client.destroy();}
  };
 }
