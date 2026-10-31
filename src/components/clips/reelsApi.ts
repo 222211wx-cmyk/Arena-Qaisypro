@@ -1,3 +1,4 @@
+import { isAccountId, type AccountId } from '@/lib/account-id';
 // Typed access to the reels-data-contract endpoints. Every call is same-origin
 // under BASE and sends credentials so the session cookie scopes engagement,
 // saves, shares, follows, and notifications to the signed-in citizen.
@@ -49,7 +50,7 @@ export type Engagement = {
 };
 
 export type Identity =
-  | { status: "authenticated"; accountId: number; username: string | null; avatarUrl: string | null }
+  | { status: "authenticated"; accountId: AccountId; username: string | null; avatarUrl: string | null }
   | { status: "anonymous" }
   | { status: "unknown" };
 
@@ -157,11 +158,11 @@ export async function resolveIdentity(timeoutMs = 8_000): Promise<Identity> {
     const me = (await response.json().catch(() => null)) as
       | { id?: unknown; username?: unknown; avatarUrl?: unknown; avatar_url?: unknown; avatar?: unknown }
       | null;
-    if (me && Number.isSafeInteger(me.id) && (me.id as number) > 0 && typeof me.username === "string") {
+    if (me && isAccountId(me.id) && typeof me.username === "string") {
       const avatar = (me.avatarUrl ?? me.avatar_url ?? me.avatar) as unknown;
       return {
         status: "authenticated",
-        accountId: me.id as number,
+        accountId: me.id,
         username: typeof me.username === "string" ? me.username : null,
         avatarUrl: typeof avatar === "string" && avatar ? avatar : null,
       };

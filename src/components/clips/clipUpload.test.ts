@@ -62,10 +62,10 @@ describe("direct clip transport", () => {
     expect(result).toMatchObject({ code: "HELX-123456", name: "Mon clip" });
   });
 
-  it("sends a 171 MiB original file directly without proxying bytes through API", async () => {
+  it("sends a 99 MiB original file directly without proxying bytes through API", async () => {
     const { puts, fetches } = setup();
     const original = file();
-    Object.defineProperty(original, "size", { value: 171 * 1024 ** 2 });
+    Object.defineProperty(original, "size", { value: 99 * 1024 ** 2 });
     await uploadClip(original, { title: "Large clip", durationSec: 61 }, new AbortController().signal, () => {}, { expectedOwner: 7 });
     expect(puts).toHaveLength(1);
     expect(puts[0].body).toBe(original);
@@ -114,6 +114,6 @@ describe("direct clip transport", () => {
     Object.defineProperty(big, "size", { value: MAX_CLIP_BYTES + 1 });
     await expect(uploadClip(big, { title: "t", durationSec: 61 }, new AbortController().signal, () => {}, { expectedOwner: 7 })).rejects.toThrow(FILE_TOO_LARGE_MESSAGE);
     expect(fetches).toHaveLength(0);
-    expect(FILE_TOO_LARGE_MESSAGE).not.toMatch(/GiB|\d/);
+    expect(FILE_TOO_LARGE_MESSAGE).toContain("100MB");
   });
 });

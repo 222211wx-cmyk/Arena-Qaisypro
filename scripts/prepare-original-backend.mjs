@@ -4,6 +4,18 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+if (process.env.ARENA_MIGRATE_VICHY_CLIPS === '1') {
+  const { runVichyMigration } = await import('./migrate-vichy-clips.mjs');
+  try { await runVichyMigration(); } catch { throw new Error('Publication metadata migration failed; deployment stopped.'); }
+}
+
+// Read-only inventory through protected production configuration, never startup.
+if (process.env.ARENA_AUDIT_PRODUCTION_DATA === '1') {
+  const { runProductionDataAudit } = await import('./audit-production-data.mjs');
+  try { await runProductionDataAudit(); }
+  catch { throw new Error('Production data audit failed; deployment stopped. No data was modified.'); }
+}
+
 // One-shot operator flag passed to this deployment's build, not a saved env var.
 if (process.env.ARENA_MIGRATE_CREDENTIAL_EPOCH === '1') {
   const { runCredentialEpochMigration } = await import('./migrate-auth-credential-epoch.mjs');
@@ -42,8 +54,8 @@ replaceBlock('  const aiResponse = await callAiEngine(userInput, rateKey, req.lo
 
 // Core auth must be intercepted before archived express-session middleware:
 // the archive assumes numeric identities; the deployed Neon users use text IDs.
-runtime = "import { secureAuthRoutes, enforceDeviceSession, configureAuthModeration } from './server/auth.js';\n" + runtime;
-replaceOnce('app.use(sessionMiddleware);', 'configureAuthModeration(async username => !hasBlockedKeyword(username) && (await moderateText(username, { allowTrivial: true })).ok);\napp.use(secureAuthRoutes);\napp.use(sessionMiddleware);\napp.use(enforceDeviceSession);');
+runtime = "import { durableClipRoutes, configurePublicationModeration } from './server/durable-clips.js';\nimport { secureAuthRoutes, enforceDeviceSession, configureAuthModeration } from './server/auth.js';\n" + runtime;
+replaceOnce('app.use(sessionMiddleware);', 'configurePublicationModeration(async title => !hasBlockedKeyword(title) && (await moderateText(title, { allowTrivial: true })).ok);\nconfigureAuthModeration(async username => !hasBlockedKeyword(username) && (await moderateText(username, { allowTrivial: true })).ok);\napp.use(secureAuthRoutes);\napp.use(durableClipRoutes);\napp.use(sessionMiddleware);\napp.use(enforceDeviceSession);');
 // Keep other API routes from treating textual IDs as integer parameters while
 // checking the durable session. No account IDs are converted or re-assigned.
 replaceOnce('JOIN users u ON u.id = $2::integer', 'JOIN users u ON u.id::text = $2::text');
@@ -115,7 +127,7 @@ await build({
   outfile: resolve(output, 'runtime.mjs'),
   bundle: true, platform: 'node', format: 'esm', target: 'node22',
   banner: { js: "import { createRequire as hostingCreateRequire } from 'node:module'; globalThis.require = hostingCreateRequire(import.meta.url);" },
-  external: ['@aws-sdk/*', '@google-cloud/*', 'bcrypt', 'drizzle-orm', 'drizzle-orm/*', 'pg', 'undici', 'google-auth-library'],
+  external: ['@ffprobe-installer/*', '@aws-sdk/*', '@google-cloud/*', 'bcrypt', 'drizzle-orm', 'drizzle-orm/*', 'pg', 'undici', 'google-auth-library'],
 });
 // Keep the archived logging workers beside the generated bundle.
 for (const entry of archive.getEntries()) {

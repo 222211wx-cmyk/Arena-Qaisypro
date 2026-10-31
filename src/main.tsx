@@ -8,7 +8,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const rawRoute = window.location.pathname.slice(base.length) || "/";
 const route = rawRoute.length > 1 ? rawRoute.replace(/\/+$/, "") : rawRoute;
 const clipCode = route.match(/^\/clip\/(HELX-\d{6})$/)?.[1] ?? route.match(/^\/clips\/([1-9]\d*)$/)?.[1];
-const isClipRoute = route === "/clip" || route === "/clips" || route === "/publish";
+const isClipRoute = route === "/clip" || route === "/clips" || route === "/publish" || route === "/cli";
 function showClipStartupError() {
   showStartupError("تعذر تشغيل صفحة الكليبز. تحقق من الاتصال وحاول مجدداً.", "clip");
 }
