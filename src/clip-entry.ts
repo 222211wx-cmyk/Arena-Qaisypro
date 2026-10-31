@@ -1,3 +1,4 @@
+import { isAccountId, type AccountId } from '@/lib/account-id';
 import { tokens } from "@workspace/gdna-ds/tokens";
 import { mountLightweightBackButton } from "./lib/lightweight-back-button";
 mountLightweightBackButton();
@@ -118,7 +119,7 @@ let durationProbe: Promise<number | null> | null = null;
 let uploadController: AbortController | null = null;
 let selectedFileKey: string | null = null;
 let submissionPending = false;
-let uploadOwner: number | null = null;
+let uploadOwner: AccountId | null = null;
 let accountReloading = false;
 if (window.isSecureContext && "serviceWorker" in navigator) {
   // Same URL and scope as app-entry: keeps the canonical push/call worker current.
@@ -377,7 +378,7 @@ function openComposer() {
   (chooseFile ?? composerClose).focus();
 }
 function closeComposer() {
-  if (window.location.pathname.replace(/\/$/, "").endsWith("/publish")) {
+  if (["/publish", "/cli"].some(path => window.location.pathname.replace(/\/$/, "").endsWith(path))) {
     window.location.assign(`${BASE}clips`);
     return;
   }
@@ -416,7 +417,7 @@ function reloadFeedAfterPublish() {
 
 let authFlight: Promise<void> | null = null;
 let authGeneration = 0;
-let verifiedAccount: number | null | undefined;
+let verifiedAccount: AccountId | null | undefined;
 
 function reloadForAccountChange() {
   if (accountReloading) return;
@@ -432,7 +433,7 @@ function reloadForAccountChange() {
   window.location.reload();
 }
 
-function acceptAccount(id: number | null): boolean {
+function acceptAccount(id: AccountId | null): boolean {
   if (verifiedAccount !== undefined && verifiedAccount !== id) {
     announceAccountChange(id);
     reloadForAccountChange();
@@ -475,12 +476,12 @@ async function verifyAuth() {
     if (!response.ok) throw new Error(`Session verification unavailable (${response.status}) — Réessayer`);
     const me = await response.json();
     if (accountReloading || generation !== authGeneration) return;
-    if (!me || !Number.isSafeInteger(me.id) || me.id <= 0 || typeof me.username !== "string") {
+    if (!me || !isAccountId(me.id) || typeof me.username !== "string") {
       throw new Error("Réponse de session invalide — Réessayer");
     }
     if (!acceptAccount(me.id)) return;
     {
-      calls.setAccount(me.id);
+      calls.setAccount(typeof me.id === "number" ? me.id : null);
       uploadOwner = me.id;
     }
     auth.textContent = "يمكنك رفع ملفك الآن";
@@ -520,5 +521,5 @@ document.body.dataset.clipReady = "true";
 // identity for engagement scoping). Resolve auth in parallel to enable the
 // upload composer form.
 mountReelsFeed();
-if (window.location.pathname.replace(/\/$/, "").endsWith("/publish")) openComposer();
+if (["/publish", "/cli"].some(path => window.location.pathname.replace(/\/$/, "").endsWith(path))) openComposer();
 void loadAuth();

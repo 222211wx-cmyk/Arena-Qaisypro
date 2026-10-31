@@ -26,7 +26,7 @@ test('original archive is unchanged and protection removes destructive startup',
 
 test('all original section route registrations remain byte-for-byte unchanged', () => {
   const routes = s => s.match(/^(?:router\d*|app|app_default|adminRouter)\.(?:get|post|put|delete|patch|use)\(.*$/gm);
-  assert.deepEqual(routes(runtime).filter(line=>!['app.use(secureAuthRoutes);','app.use(enforceDeviceSession);'].includes(line)), routes(original));
+  assert.deepEqual(routes(runtime).filter(line=>!['app.use(secureAuthRoutes);','app.use(enforceDeviceSession);','app.use(durableClipRoutes);'].includes(line)), routes(original));
   assert.ok(runtime.indexOf('app.use(secureAuthRoutes);') < runtime.indexOf('app.use(sessionMiddleware);'));
   assert.ok(runtime.includes('JOIN users u ON u.id::text = $2::text'));
   const config = JSON.parse(readFileSync('vercel.json'));
@@ -80,7 +80,7 @@ test('production cold start and public HTTP route perform no DB queries or exter
       }).on('error', reject);
     });
     if (result.status !== 200 || JSON.parse(result.text).status !== 'ok') throw new Error('Original health endpoint failed: '+JSON.stringify(result));
-    for (const [path,method,expected] of [['/api/auth/login','POST',400],['/api/auth/me','GET',401]]) {
+    for (const [path,method,expected] of [['/api/auth/login','POST',400],['/api/auth/me','GET',401],['/api/clips/presign','GET',405],['/api/cli/upload','GET',405]]) {
       const auth = await new Promise((resolve,reject)=>{
         const request=http.request({host:'127.0.0.1',port:server.address().port,path,method,headers:{'Content-Type':'application/json'}},res=>{
           let text='';res.on('data',chunk=>text+=chunk);res.on('end',()=>resolve({status:res.statusCode,text}));

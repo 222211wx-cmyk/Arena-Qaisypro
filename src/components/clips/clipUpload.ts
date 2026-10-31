@@ -1,3 +1,4 @@
+import { isAccountId, type AccountId } from '@/lib/account-id';
 import { trackEvent } from "@/lib/analytics";
 
 export type ClipUploadMetadata = {
@@ -44,12 +45,12 @@ async function postJson(url: string, body: Record<string, unknown>, signal: Abor
 }
 
 
-export async function currentUploadOwner(signal?: AbortSignal): Promise<number> {
+export async function currentUploadOwner(signal?: AbortSignal): Promise<AccountId> {
   const response = await fetch(`${import.meta.env.BASE_URL}api/auth/me`, { credentials: "include", cache: "no-store", signal });
   if (response.status === 401) throw new Error("Reconnectez-vous pour publier");
   if (!response.ok) throw new Error(`Vérification de session indisponible (${response.status}) — réessayez`);
   const me = await response.json();
-  if (!Number.isSafeInteger(me?.id) || me.id <= 0 || typeof me.username !== "string") throw new Error("Compte non vérifié — réessayez");
+  if (!isAccountId(me?.id) || typeof me.username !== "string") throw new Error("Compte non vérifié — réessayez");
   return me.id;
 }
 
@@ -78,8 +79,8 @@ function putOriginal(url: string, file: File, signal: AbortSignal, onProgress: C
   });
 }
 
-export const MAX_CLIP_BYTES = 5 * 1024 ** 3;
-export const FILE_TOO_LARGE_MESSAGE = "تعذر رفع هذا الملف — اختر ملفاً آخر";
+export const MAX_CLIP_BYTES = 100 * 1024 ** 2;
+export const FILE_TOO_LARGE_MESSAGE = "الحد الأقصى للملف 100MB — اختر ملفاً أصغر";
 
 /** Transfer original bytes to storage; publish only after server confirmation. */
 export async function uploadClip(
@@ -87,7 +88,7 @@ export async function uploadClip(
   metadata: ClipUploadMetadata,
   signal: AbortSignal,
   onProgress: ClipUploadProgress,
-  options: { expectedOwner: number },
+  options: { expectedOwner: AccountId },
 ): Promise<PublishedClip> {
   signal.throwIfAborted();
   if (file.size > MAX_CLIP_BYTES) throw new Error(FILE_TOO_LARGE_MESSAGE);

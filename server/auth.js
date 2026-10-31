@@ -295,6 +295,17 @@ export function authHandler(operation) {
   };
 }
 
+// Fence publication against logout/password rotation while media is inspected.
+export async function lockPublicationSession(req, client, expectedUserId) {
+  const sid = readSid(req, process.env.SESSION_SECRET);
+  if (!sid) return false;
+  const users = await client.query('SELECT credential_epoch FROM users WHERE id=$1 FOR UPDATE', [expectedUserId]);
+  const sessions = await client.query('SELECT sess FROM user_sessions WHERE sid=$1 AND expire>NOW() FOR SHARE', [sid]);
+  const session = sessions.rows[0]?.sess;
+  return !!session && session.userId === expectedUserId && users.rows.length === 1 &&
+    session.credentialEpoch === users.rows[0].credential_epoch && sessionDeviceMatches(req, session);
+}
+
 const coreRoutes = new Map([
   ['/api/auth/login','login'], ['/api/login','login'],
   ['/api/auth/register','register'], ['/api/register','register'],
