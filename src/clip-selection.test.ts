@@ -56,13 +56,28 @@ describe("final simple Clip selection", () => {
   });
 
   it.each(["audio/mpeg", "video/mp4"])("blocks a short %s with the exact requested message", async type => {
-    duration.mockResolvedValueOnce(59.99);
+    duration.mockResolvedValueOnce(29.99);
     select(media("short", type, 100));
     await vi.waitFor(() => expect(text("duration-status")).toContain(":"));
     expect(submit().disabled).toBe(false);
     form().requestSubmit();
-    await vi.waitFor(() => expect(text("upload-error")).toBe("خاص دقيقة الفوق"));
+    await vi.waitFor(() => expect(text("upload-error")).toBe("الحد الأدنى 30 ثانية — بلا حد أقصى للمدة"));
     expect(upload).not.toHaveBeenCalled();
+  });
+
+  it.each(["audio/mpeg", "video/mp4"])("accepts %s from exactly 30 seconds without an upper duration cap", async type => {
+    for (const seconds of [30, 30.5, 59.99, 60, 25 * 3600]) {
+      duration.mockResolvedValueOnce(seconds);
+      upload.mockResolvedValueOnce({ ...receipt, duration: Math.floor(seconds) });
+      select(media(`clip-${seconds}`, type, 100));
+      await vi.waitFor(() => expect(text("duration-status")).toContain(":"));
+      form().requestSubmit();
+      await vi.waitFor(() => expect(upload).toHaveBeenLastCalledWith(
+        expect.any(File), expect.objectContaining({ durationSec: seconds }),
+        expect.any(AbortSignal), expect.any(Function), expect.any(Object),
+      ));
+      await vi.waitFor(() => expect(text("selection")).toBe("تم نشر الملف"));
+    }
   });
 
   it("opens the native picker without submitting", () => {
@@ -192,14 +207,14 @@ describe("final simple Clip selection", () => {
     let resolveOld!: (seconds: number) => void;
     duration.mockReturnValueOnce(new Promise<number>(resolve => { resolveOld = resolve; }));
     select(media("old.mp4", "video/mp4", 1024));
-    duration.mockResolvedValueOnce(59);
+    duration.mockResolvedValueOnce(29);
     select(media("new.mp3", "audio/mpeg", 1024));
     await vi.waitFor(() => expect(text("duration-status")).toContain(":"));
     resolveOld(65);
     await Promise.resolve();
     expect(submit().disabled).toBe(false);
     form().requestSubmit();
-    await vi.waitFor(() => expect(text("upload-error")).toBe("خاص دقيقة الفوق"));
+    await vi.waitFor(() => expect(text("upload-error")).toBe("الحد الأدنى 30 ثانية — بلا حد أقصى للمدة"));
     expect(text("selection")).toBe("✓ Fichier sélectionné");
     expect(chooser().textContent).toContain("new.mp3");
   });

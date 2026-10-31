@@ -35,6 +35,23 @@ application files are read-only. Local-disk upload endpoints are not made durabl
 by this adapter, and are not silently redirected to ephemeral temporary storage.
 Existing R2 request paths and all storage credentials are unchanged.
 
+## Clips duration policy
+
+The browser composer and the prepared backend publication validator accept audio
+and video from **30 seconds inclusive**, with no application-defined maximum
+media duration. The feed response schema uses the same 30-second minimum. The
+archive remains unchanged; the adapter patches the audited minimum gate and
+fails the build if that original boundary changes.
+
+Unknown browser metadata still requires server-side media inspection. Ownership,
+object-length checks, authentication and publication verification remain in place.
+This is not unlimited file storage: existing byte, transport and provider limits
+are unchanged. There is no production database migration in this change; any
+live database duration constraints must be inspected before release. No real
+30-second upload or long-file playback is established by mocked upload tests.
+Authenticated preview publishing requires an application test account; the
+repository does not document one. Do not remove authentication to test uploads.
+
 ## Checks and limits
 
 `npm run test:hosting` checks removed destructive startup SQL, unchanged route

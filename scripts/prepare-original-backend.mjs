@@ -48,6 +48,13 @@ replaceOnce('app.use(sessionMiddleware);', 'configureAuthModeration(async userna
 // checking the durable session. No account IDs are converted or re-assigned.
 replaceOnce('JOIN users u ON u.id = $2::integer', 'JOIN users u ON u.id::text = $2::text');
 
+// Clips accept verified audio/video from 30 seconds, with no duration ceiling.
+// Change only the minimum gate and feed contract; keep object/media verification.
+replaceOnce("  if (seconds < 60) throw new ClipUploadError(400, \"\\u0627\\u0644\\u0645\\u062F\\u0629 \\u0627\\u0644\\u062F\\u0646\\u064A\\u0627 \\u062F\\u0642\\u064A\\u0642\\u0629 \\u0648\\u0627\\u062D\\u062F\\u0629 \\u2014 \\u0628\\u0644\\u0627 \\u062D\\u062F \\u0623\\u0642\\u0635\\u0649 \\u0644\\u0644\\u0645\\u062F\\u0629\");",
+  '  if (seconds < 30) throw new ClipUploadError(400, "الحد الأدنى 30 ثانية — بلا حد أقصى للمدة");');
+replaceOnce('getClipsFeedResponseClipsItemDurationSecMin = 60;',
+  'getClipsFeedResponseClipsItemDurationSecMin = 30;');
+
 // Accept both the existing hosted UI contract and the requested message/question API.
 replaceOnce('  const raw = req.body?.command;', '  const raw = req.body?.message || req.body?.question || req.body?.command;');
 replaceBlock('  if (!userInput) {\n    res.json({', '  const check3 = await validateContent(userInput, { allowTrivial: true });',

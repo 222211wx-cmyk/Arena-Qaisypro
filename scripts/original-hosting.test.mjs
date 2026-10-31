@@ -5,6 +5,7 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import AdmZip from 'adm-zip';
+import { runInNewContext } from 'node:vm';
 
 execFileSync(process.execPath, ['scripts/prepare-original-backend.mjs']);
 const runtime = readFileSync('.original-backend/audited.mjs', 'utf8');
@@ -22,6 +23,30 @@ test('original archive is unchanged and protection removes destructive startup',
   assert.ok(runtime.includes('LOWER(${usersTable.email}) = LOWER(${username}) OR LOWER(${usersTable.username}) = LOWER(${username})'));
   assert.ok(runtime.includes('req.body?.email'));
   assert.ok(runtime.includes('const existing = await db.select().from(usersTable).where(sql`LOWER(${usersTable.username}) = LOWER(${username})`).limit(1)'));
+});
+
+test('prepared publication policy accepts 30 seconds and long media, not short or invalid media', () => {
+  // Execute the actual function that the hosting adapter packages, not a copy.
+  const policy = runtime.slice(runtime.indexOf('function clipDurationSeconds('), runtime.indexOf('var MAX_CLIP_BYTES,'));
+  const validate = runInNewContext(`(${policy})`, {
+    ClipUploadError: class extends Error {
+      constructor(status, message) { super(message); this.status = status; }
+    },
+  });
+  for (const type of ['audio/mpeg', 'video/mp4']) {
+    for (const seconds of [0, -1, 29.99, NaN, Infinity, -Infinity]) {
+      assert.throws(() => validate(seconds, type), error => error.status === 400);
+    }
+    for (const seconds of [30, 30.5, 59.99, 60, 25 * 3600]) {
+      assert.equal(validate(seconds, type), Math.floor(seconds));
+    }
+  }
+  assert.throws(() => validate(29.99, 'video/mp4'), /30 ثانية/);
+  assert.ok(runtime.includes('getClipsFeedResponseClipsItemDurationSecMin = 30;'));
+  assert.ok(!runtime.includes('getClipsFeedResponseClipsItemDurationSecMin = 60;'));
+  assert.ok(runtime.includes('verifiedSeconds = await verifiedDuration(clipFile(input.filename), "media", input.signal);'));
+  assert.ok(runtime.includes('const duration3 = clipDurationSeconds(verifiedSeconds, contentType);'));
+  assert.ok(runtime.includes('if (Number(metadata.size) !== input.size) throw new ClipUploadError(409, "Stored media size does not match");'));
 });
 
 test('all original section route registrations remain byte-for-byte unchanged', () => {

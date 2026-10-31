@@ -55,7 +55,7 @@ describe("ultra-light clip bootstrap", () => {
     const clip = source("./clip-entry.ts");
     expect(clip).not.toContain("25 * 1024 * 1024");
     expect(clip).not.toMatch(/size-warning|name="purpose"|original-footage|id="rights"/);
-    expect(clip).toContain("خاص دقيقة الفوق");
+    expect(clip).toContain("الحد الأدنى 30 ثانية — بلا حد أقصى للمدة");
     expect(clip).toContain("readClipDuration");
     expect(clip).toContain("MAX_CLIP_BYTES");
     for (const id of ["clip-file-input", "clip-submit", "clip-progress", "clip-status", "clip-error"]) {

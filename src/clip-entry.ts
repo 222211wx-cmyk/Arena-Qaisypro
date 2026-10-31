@@ -341,7 +341,7 @@ form.addEventListener("submit", async event => {
     const duration = selectedDuration ?? await awaitPendingDurationProbe(operation.signal);
     operation.signal.throwIfAborted();
     if (cachedFile !== file) return;
-    if (duration !== null && duration < 60) throw new Error("خاص دقيقة الفوق");
+    if (duration !== null && duration < 30) throw new Error("الحد الأدنى 30 ثانية — بلا حد أقصى للمدة");
     const metadata: ClipUploadMetadata = { title, durationSec: duration };
     const published = await uploadClip(file, metadata, operation.signal, reportUploadProgress, { expectedOwner: owner });
     if (uploadOwner !== owner) return;
