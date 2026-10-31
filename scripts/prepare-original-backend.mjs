@@ -4,6 +4,13 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// Read-only inventory through protected production configuration, never startup.
+if (process.env.ARENA_AUDIT_PRODUCTION_DATA === '1') {
+  const { runProductionDataAudit } = await import('./audit-production-data.mjs');
+  try { await runProductionDataAudit(); }
+  catch { throw new Error('Production data audit failed; deployment stopped. No data was modified.'); }
+}
+
 // One-shot operator flag passed to this deployment's build, not a saved env var.
 if (process.env.ARENA_MIGRATE_CREDENTIAL_EPOCH === '1') {
   const { runCredentialEpochMigration } = await import('./migrate-auth-credential-epoch.mjs');

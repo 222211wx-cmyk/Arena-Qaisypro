@@ -75,3 +75,12 @@ it('keeps a verified text identity unchanged and never authenticates localStorag
  expect(state.user?.username).toBe('RealCitizen');
  localStorage.removeItem('gdna_session');
 });
+it('retires only known fake auth caches while preserving unrelated user data',async()=>{
+ for(const key of ['gdna_users','gdna_session','gdna_device','arena:demo:session:v1'])localStorage.setItem(key,'stale');
+ localStorage.setItem('keep-my-drafts','draft');
+ vi.spyOn(globalThis,'fetch').mockResolvedValue(new Response('',{status:401}));
+ render(<AuthProvider><Reader/></AuthProvider>);await waitFor(()=>expect(state.loading).toBe(false));
+ for(const key of ['gdna_users','gdna_session','gdna_device','arena:demo:session:v1'])expect(localStorage.getItem(key)).toBeNull();
+ expect(localStorage.getItem('keep-my-drafts')).toBe('draft');localStorage.removeItem('keep-my-drafts');
+ expect(state.user).toBeNull();
+});
