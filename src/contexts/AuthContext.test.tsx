@@ -84,3 +84,11 @@ it('retires only known fake auth caches while preserving unrelated user data',as
  expect(localStorage.getItem('keep-my-drafts')).toBe('draft');localStorage.removeItem('keep-my-drafts');
  expect(state.user).toBeNull();
 });
+
+it('does not accept malformed successful session responses as authenticated citizens',async()=>{
+ vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json({success:true}));
+ render(<AuthProvider><Reader/></AuthProvider>);
+ await waitFor(()=>expect(state.loading).toBe(false));
+ expect(state.user).toBeNull();expect(state.authError).toContain('Invalid authenticated session');
+ expect(screen.getByText('Full Arena guest')).toBeTruthy();
+});

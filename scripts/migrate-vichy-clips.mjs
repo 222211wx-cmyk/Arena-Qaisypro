@@ -13,18 +13,30 @@ export async function migrateVichyClips(client) {
       user_id TEXT NOT NULL REFERENCES users(id), username TEXT NOT NULL,
       title TEXT NOT NULL, original_name TEXT NOT NULL,
       object_key TEXT NOT NULL UNIQUE, content_type TEXT NOT NULL,
-      size_bytes BIGINT NOT NULL CHECK(size_bytes>0 AND size_bytes<=104857600),
+      size_bytes BIGINT NOT NULL CHECK(size_bytes>0 AND size_bytes<=2147483648),
       duration_sec DOUBLE PRECISION NOT NULL CHECK(duration_sec>=60),
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )`);
     await client.query(`CREATE TABLE IF NOT EXISTS vichy_clip_uploads (
       id UUID PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id),
       object_key TEXT NOT NULL UNIQUE, title TEXT NOT NULL, original_name TEXT NOT NULL,
-      content_type TEXT NOT NULL, size_bytes BIGINT NOT NULL CHECK(size_bytes>0 AND size_bytes<=104857600),
+      content_type TEXT NOT NULL, size_bytes BIGINT NOT NULL CHECK(size_bytes>0 AND size_bytes<=2147483648),
       state TEXT NOT NULL DEFAULT 'pending' CHECK(state IN ('pending','published','deleted')),
       clip_id INTEGER REFERENCES vichy_clips(id), created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       expires_at TIMESTAMPTZ NOT NULL
     )`);
+    // CREATE IF NOT EXISTS cannot upgrade the old 100MiB CHECK. Change only
+    // the two known size constraints, and abort on any unexpected definition.
+    // This runs only in the explicitly requested migration, never on startup.
+    for(const table of ['vichy_clips','vichy_clip_uploads']) {
+      const name=table+'_size_bytes_check';
+      const existing=await client.query('SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid=$1::regclass AND conname=$2 AND contype=\'c\'', [table,name]);
+      const normalized=existing.rows[0]?.definition?.replace(/::bigint|CHECK|[()\s']/g,'');
+      if(existing.rows.length!==1 || !['size_bytes>0ANDsize_bytes<=104857600','size_bytes>0ANDsize_bytes<=2147483648'].includes(normalized)) throw new Error('Unexpected publication size constraint; review schema before migration');
+      if(normalized.endsWith('<=104857600')) {
+        await client.query(`ALTER TABLE "${table}" DROP CONSTRAINT "${name}", ADD CONSTRAINT "${name}" CHECK(size_bytes>0 AND size_bytes<=2147483648)`);
+      }
+    }
     await client.query('CREATE INDEX IF NOT EXISTS vichy_clip_uploads_owner ON vichy_clip_uploads(user_id,created_at)');
     await client.query('COMMIT');
     console.log('Durable publication tables verified. Existing users and content untouched.');

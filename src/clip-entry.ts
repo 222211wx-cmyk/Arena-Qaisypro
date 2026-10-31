@@ -6,6 +6,7 @@ import { createLightweightCallBoundary } from "./lib/lightweight-call-boundary";
 import { announceAccountChange, fetchSharedClipSession, subscribeAccountChanges, subscribeSessionWake } from "./lib/account-session-events";
 import {
   uploadClip,
+  cancelPendingUploads,
   MAX_CLIP_BYTES,
   FILE_TOO_LARGE_MESSAGE,
   type ClipUploadMetadata,
@@ -83,6 +84,8 @@ root.innerHTML = `
       <button id="submit" data-testid="clip-submit" type="submit" disabled>نشر</button>
       <button id="cancel" class="secondary" type="button" hidden>Annuler</button>
     </div>
+    <button id="clear-pending" class="secondary" type="button">Annuler les téléversements inachevés</button>
+    <p class="muted">60 ثانية على الأقل — لا حد زمني مفروض.</p>
     <p id="upload-error" data-testid="clip-error" class="error" role="alert" aria-live="assertive"></p>
     <div id="receipt" data-testid="clip-receipt" role="status" aria-live="polite" hidden></div>
   </form>
@@ -103,6 +106,7 @@ const durationStatus = element<HTMLParagraphElement>("duration-status");
 const receipt = element<HTMLDivElement>("receipt");
 const submit = element<HTMLButtonElement>("submit");
 const cancel = element<HTMLButtonElement>("cancel");
+const clearPending = element<HTMLButtonElement>("clear-pending");
 const selection = element<HTMLParagraphElement>("selection");
 const progressWrap = element<HTMLDivElement>("progress-wrap");
 const progress = element<HTMLProgressElement>("progress");
@@ -119,6 +123,7 @@ let durationProbe: Promise<number | null> | null = null;
 let uploadController: AbortController | null = null;
 let selectedFileKey: string | null = null;
 let submissionPending = false;
+let clearingPending = false;
 let uploadOwner: AccountId | null = null;
 let accountReloading = false;
 if (window.isSecureContext && "serviceWorker" in navigator) {
@@ -160,7 +165,8 @@ function displayNameValidationError() {
 function updateSubmitState() {
   // Selection is enough to make the action discoverable. Size, duration and
   // title errors are explained after a click instead of by a disabled button.
-  submit.disabled = accountReloading || uploadOwner === null || Boolean(uploadController) || !cachedFile;
+  clearPending.disabled = clearingPending || accountReloading || uploadOwner === null || Boolean(uploadController);
+  submit.disabled = clearingPending || accountReloading || uploadOwner === null || Boolean(uploadController) || !cachedFile;
 }
 
 function formatBytes(bytes: number) {
@@ -273,6 +279,27 @@ cancel.addEventListener("click", () => {
   }
 });
 
+clearPending.addEventListener("click", async () => {
+  if (clearingPending || uploadOwner === null || uploadController || accountReloading) return;
+  if (!window.confirm("Annuler vos téléversements inachevés, y compris ceux ouverts dans un autre onglet ? Les publications confirmées seront conservées.")) return;
+  const owner = uploadOwner;
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 30_000);
+  clearingPending = true;
+  updateSubmitState();
+  uploadError.textContent = "";
+  try {
+    const count = await cancelPendingUploads(owner, controller.signal);
+    if (uploadOwner === owner) uploadError.textContent = `${count} téléversement(s) inachevé(s) annulé(s). Vous pouvez réessayer.`;
+  } catch (error) {
+    if (uploadOwner === owner) uploadError.textContent = error instanceof Error ? error.message : "Annulation indisponible — réessayez";
+  } finally {
+    clearTimeout(timer);
+    clearingPending = false;
+    updateSubmitState();
+  }
+});
+
 async function awaitPendingDurationProbe(signal: AbortSignal) {
   signal.throwIfAborted();
   const pending = durationProbe;
@@ -312,7 +339,7 @@ function reportUploadProgress(percent: number, uploaded: number, total: number) 
 form.addEventListener("submit", async event => {
   event.preventDefault();
   const file = cachedFile;
-  if (!file || uploadOwner === null || accountReloading || uploadController || submissionPending) return;
+  if (!file || clearingPending || uploadOwner === null || accountReloading || uploadController || submissionPending) return;
   submissionPending = true;
   uploadError.textContent = "";
   displayNameError.textContent = "";

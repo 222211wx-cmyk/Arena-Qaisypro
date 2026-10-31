@@ -66,3 +66,40 @@ it('preserves missing-table error rather than returning empty success',async()=>
 it('requires safe public object URLs and real audio/video metadata',()=>{
  expect(()=>publicUrl('../secret','https://media.example')).toThrow();expect(metadata({filename:'x.html',title:'x',contentType:'text/html',size:10})).toBeNull();
 });
+
+it('rolls back the new pending row if signing fails',async()=>{
+ sign.mockRejectedValue(new Error('signing failed'));const r=res();await handler(req(),r,vi.fn());
+ expect(r.statusCode).toBe(503);expect(query.mock.calls.at(-1)[0]).toBe('ROLLBACK');
+ expect(query.mock.calls.some(([sql]:any)=>sql==='COMMIT')).toBe(false);
+});
+it('returns a real retry delay when active pending slots are full without granting another',async()=>{
+ const original=query.getMockImplementation();
+ query.mockImplementation(async(sql:string,...args:any[])=>sql.startsWith('SELECT count')?{rows:[{count:10}]}:sql.startsWith('SELECT GREATEST')?{rows:[{seconds:120}]}:original(sql,...args));
+ const r=res();await handler(req(),r,vi.fn());expect(r.statusCode).toBe(429);expect(r.headers['Retry-After']).toBe('120');
+ expect(sign).not.toHaveBeenCalled();expect(query.mock.calls.some(([sql]:any)=>sql.startsWith('INSERT INTO'))).toBe(false);
+});
+it('lists only authenticated owner pending keys without requiring storage access',async()=>{
+ const original=query.getMockImplementation();
+ query.mockImplementation(async(sql:string,...args:any[])=>sql.startsWith('SELECT object_key AS key')?{rows:[{key}]}:original(sql,...args));
+ const r=res();await handler(req('/api/clips/pending',undefined,'GET'),r,vi.fn());
+ expect(r.body).toEqual({ownerId:user.id,uploads:[{key}]});expect(send).not.toHaveBeenCalled();
+ const listing=query.mock.calls.find(([sql]:any)=>sql.startsWith('SELECT object_key AS key'));
+ expect(listing[1]).toEqual([user.id]);expect(listing[0]).toContain("clip_id IS NULL AND expires_at>NOW()");
+});
+it('does not expose pending uploads when authentication fails',async()=>{
+ authenticate.mockImplementation(async(_req:any,r:any)=>{r.status(401).json({error:'Sign in'});return null;});
+ const r=res();await handler(req('/api/clips/pending',undefined,'GET'),r,vi.fn());expect(r.statusCode).toBe(401);expect(query).not.toHaveBeenCalled();
+});
+it('cancels only an owner pending upload after session fencing',async()=>{
+ const r=res();await handler(req('/api/clips/cancel',{key,expectedOwnerId:user.id}),r,vi.fn());expect(r.statusCode).toBe(200);
+ expect(send.mock.calls[0][0].input.Key).toBe(key);expect(fence).toHaveBeenCalled();
+ expect(query.mock.calls.some(([sql]:any)=>sql.includes("state='deleted'"))).toBe(true);
+});
+it('never cancels a confirmed publication',async()=>{
+ const original=query.getMockImplementation();query.mockImplementation(async(sql:string,...args:any[])=>sql.includes('FROM vichy_clip_uploads')?{rows:[{...upload,clip_id:clip.id}]}:original(sql,...args));
+ const r=res();await handler(req('/api/clips/cancel',{key}),r,vi.fn());expect(r.statusCode).toBe(409);expect(send).not.toHaveBeenCalled();
+});
+it('accepts 512MiB metadata after the explicit database limit migration',()=>{
+ expect(metadata({filename:'x.mp4',title:'Long video',contentType:'video/mp4',size:512*1024**2})?.size).toBe(512*1024**2);
+ expect(MAX_BYTES).toBe(2*1024**3);
+});

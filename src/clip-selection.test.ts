@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { upload, duration } = vi.hoisted(() => ({ upload: vi.fn(), duration: vi.fn() }));
+const { upload, duration, cancelPending } = vi.hoisted(() => ({ upload: vi.fn(), duration: vi.fn(), cancelPending:vi.fn() }));
 vi.mock("./components/clips/clipUpload", () => ({
   uploadClip: upload,
+  cancelPendingUploads: cancelPending,
   MAX_CLIP_BYTES: 5 * 1024 * 1024 * 1024,
   FILE_TOO_LARGE_MESSAGE: "too-large-generic",
 }));
@@ -30,6 +31,7 @@ const receipt = { id: 1, code: "HELX-123456", name: "voice", duration: 61, url: 
 beforeEach(async () => {
   vi.resetModules();
   upload.mockReset();
+  cancelPending.mockReset().mockResolvedValue(2);
   duration.mockReset().mockResolvedValue(61);
   document.body.innerHTML = '<div id="root"></div>';
   vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith("api/auth/me") ? { id: 7, username: "citizen" } : { clips: [] }), {
@@ -251,4 +253,13 @@ describe("final simple Clip selection", () => {
     expect(submit().disabled).toBe(true);
     expect(chooser().disabled).toBe(false);
   });
+});
+it('requires explicit confirmation before cancelling pending uploads',async()=>{
+ const confirm=vi.spyOn(window,'confirm').mockReturnValue(false);
+ const button=document.getElementById('clear-pending') as HTMLButtonElement;
+ button.click();expect(cancelPending).not.toHaveBeenCalled();
+ confirm.mockReturnValue(true);button.click();
+ await vi.waitFor(()=>expect(cancelPending).toHaveBeenCalledWith(7,expect.any(AbortSignal)));
+ await vi.waitFor(()=>expect(text('upload-error')).toContain('2 téléversement(s)'));
+ confirm.mockRestore();
 });

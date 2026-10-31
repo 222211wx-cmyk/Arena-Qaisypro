@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FILE_TOO_LARGE_MESSAGE, MAX_CLIP_BYTES, uploadClip } from "./clipUpload";
+import { FILE_TOO_LARGE_MESSAGE, MAX_CLIP_BYTES, cancelPendingUploads, uploadClip } from "./clipUpload";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -37,6 +37,8 @@ function setup({ me = 7, putStatus = 200, hold = false, confirm = { ok: true, cl
     if (url.endsWith("api/auth/me")) return json({ id: me, username: "citizen" });
     if (url.endsWith("api/clips/presign")) return json({ url: "https://signed.example/put", key: "clips/abc" });
     if (url.endsWith("api/clips/confirm")) return json(confirm);
+    if (url.endsWith("api/clips/cancel")) return json({ok:true});
+    if (url.endsWith("api/clips/pending")) return json({ownerId:me,uploads:[{key:"clips/abc"}]});
     return new Response("{}", { status: 404 });
   }));
   return { fetches, puts, xhr: () => xhr };
@@ -62,10 +64,10 @@ describe("direct clip transport", () => {
     expect(result).toMatchObject({ code: "HELX-123456", name: "Mon clip" });
   });
 
-  it("sends a 99 MiB original file directly without proxying bytes through API", async () => {
+  it("sends a 512 MiB original file directly without proxying bytes through API", async () => {
     const { puts, fetches } = setup();
     const original = file();
-    Object.defineProperty(original, "size", { value: 99 * 1024 ** 2 });
+    Object.defineProperty(original, "size", { value: 512 * 1024 ** 2 });
     await uploadClip(original, { title: "Large clip", durationSec: 61 }, new AbortController().signal, () => {}, { expectedOwner: 7 });
     expect(puts).toHaveLength(1);
     expect(puts[0].body).toBe(original);
@@ -114,6 +116,34 @@ describe("direct clip transport", () => {
     Object.defineProperty(big, "size", { value: MAX_CLIP_BYTES + 1 });
     await expect(uploadClip(big, { title: "t", durationSec: 61 }, new AbortController().signal, () => {}, { expectedOwner: 7 })).rejects.toThrow(FILE_TOO_LARGE_MESSAGE);
     expect(fetches).toHaveLength(0);
-    expect(FILE_TOO_LARGE_MESSAGE).toContain("100MB");
+    expect(FILE_TOO_LARGE_MESSAGE).toContain("2GiB");
   });
+});
+
+it('releases a failed PUT slot with the same owner and never confirms it',async()=>{
+ const {fetches}=setup({putStatus:404});
+ await expect(uploadClip(file(),{title:'t',durationSec:68},new AbortController().signal,()=>{},{expectedOwner:7})).rejects.toThrow('التخزين (404)');
+ expect(fetches.find(f=>f.url.endsWith('/cancel'))?.body).toEqual({key:'clips/abc',expectedOwnerId:7});
+ expect(fetches.some(f=>f.url.endsWith('/confirm'))).toBe(false);
+});
+it('cancels aborted transfers with a separate non-aborted cleanup signal',async()=>{
+ const {xhr}=setup({hold:true});const controller=new AbortController();
+ const pending=uploadClip(file(),{title:'t',durationSec:68},controller.signal,()=>{},{expectedOwner:7});
+ await vi.waitFor(()=>expect(xhr()).not.toBeNull());controller.abort();
+ await expect(pending).rejects.toMatchObject({name:'AbortError'});
+ const cancel=(fetch as ReturnType<typeof vi.fn>).mock.calls.find(([url])=>String(url).endsWith('/cancel'));
+ expect(cancel?.[1].signal.aborted).toBe(false);
+});
+it('never auto-cancels after confirmation begins, even with a lost/invalid receipt',async()=>{
+ const {fetches}=setup({confirm:{ok:false} as never});
+ await expect(uploadClip(file(),{title:'t',durationSec:68},new AbortController().signal,()=>{},{expectedOwner:7})).rejects.toThrow();
+ expect(fetches.some(f=>f.url.endsWith('/cancel'))).toBe(false);
+});
+it('explicit recovery lists and cancels only the verified owner pending uploads',async()=>{
+ const {fetches}=setup();expect(await cancelPendingUploads(7,new AbortController().signal)).toBe(1);
+ expect(fetches.find(f=>f.url.endsWith('/cancel'))?.body).toEqual({key:'clips/abc',expectedOwnerId:7});
+});
+it('does not cancel another account uploads after a cookie owner change',async()=>{
+ const {fetches}=setup({me:8});await expect(cancelPendingUploads(7,new AbortController().signal)).rejects.toThrow('compte');
+ expect(fetches.some(f=>f.url.endsWith('/cancel'))).toBe(false);
 });

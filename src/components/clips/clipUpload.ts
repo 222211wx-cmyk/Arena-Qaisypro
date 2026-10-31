@@ -71,7 +71,7 @@ function putOriginal(url: string, file: File, signal: AbortSignal, onProgress: C
     xhr.upload.onprogress = event => {
       if (event.lengthComputable) onProgress(event.loaded / event.total * 100, event.loaded, event.total);
     };
-    xhr.onload = () => finish(xhr.status >= 200 && xhr.status < 300 ? undefined : new Error(`تعذر الرفع (${xhr.status})`));
+    xhr.onload = () => finish(xhr.status >= 200 && xhr.status < 300 ? undefined : new Error(`تعذر رفع الملف إلى التخزين (${xhr.status}) — لم يتم تأكيد النشر`));
     xhr.onerror = () => finish(new Error("تعذر الاتصال — حاول مجدداً"));
     xhr.onabort = () => finish(abortReason(signal));
     signal.addEventListener("abort", abort, { once: true });
@@ -79,8 +79,8 @@ function putOriginal(url: string, file: File, signal: AbortSignal, onProgress: C
   });
 }
 
-export const MAX_CLIP_BYTES = 100 * 1024 ** 2;
-export const FILE_TOO_LARGE_MESSAGE = "الحد الأقصى للملف 100MB — اختر ملفاً أصغر";
+export const MAX_CLIP_BYTES = 2 * 1024 ** 3;
+export const FILE_TOO_LARGE_MESSAGE = "الحد الأقصى لحجم الملف 2GiB — المدة دقيقة على الأقل دون حد زمني مفروض";
 
 /** Transfer original bytes to storage; publish only after server confirmation. */
 export async function uploadClip(
@@ -107,7 +107,22 @@ export async function uploadClip(
   const signed = new URL(session.url);
   if (signed.protocol !== "https:" || signed.username || signed.password) throw new Error("رابط الرفع غير صالح");
   onProgress(0, 0, file.size);
-  await putOriginal(session.url, file, signal, onProgress);
+  try {
+    await putOriginal(session.url, file, signal, onProgress);
+    signal.throwIfAborted();
+  } catch (error) {
+    // A failed/cancelled transfer must not consume another pending slot forever.
+    // Do not reuse the aborted transfer signal. Cleanup is best-effort and bounded;
+    // retain the original error if storage or the network is still unavailable.
+    const cleanup = new AbortController();
+    const timer = setTimeout(() => cleanup.abort(), 5000);
+    try { await postJson(`${import.meta.env.BASE_URL}api/clips/cancel`, { key: session.key, expectedOwnerId: owner }, cleanup.signal); }
+    catch { /* Explicit unfinished-upload cancellation remains available. */ }
+    finally { clearTimeout(timer); }
+    throw error;
+  }
+  // Never auto-cancel after confirmation starts: a lost response may already
+  // correspond to a committed publication.
   signal.throwIfAborted();
   const body = await postJson(`${import.meta.env.BASE_URL}api/clips/confirm`, {
     key: session.key, expectedOwnerId: owner,
@@ -120,4 +135,20 @@ export async function uploadClip(
   }
   trackEvent("clip_upload_success", { outcome: "published" });
   return { ...clip, code, name: clip.title ?? body.name ?? clip.name ?? metadata.title };
+}
+
+/** Explicit owner-only recovery; never silently discard another tab's upload. */
+export async function cancelPendingUploads(owner: AccountId, signal: AbortSignal): Promise<number> {
+  const response = await fetch(`${import.meta.env.BASE_URL}api/clips/pending`, { credentials: "include", cache: "no-store", signal });
+  if (!response.ok) throw new Error(await errorMessage(response));
+  const body = await response.json();
+  if (body?.ownerId !== owner || !Array.isArray(body.uploads) || body.uploads.some((upload: { key?: unknown }) => typeof upload?.key !== "string")) {
+    throw new Error("Le compte a changé — réessayez");
+  }
+  let cancelled = 0;
+  for (const upload of body.uploads) {
+    await postJson(`${import.meta.env.BASE_URL}api/clips/cancel`, { key: upload.key, expectedOwnerId: owner }, signal);
+    cancelled++;
+  }
+  return cancelled;
 }
